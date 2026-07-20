@@ -315,6 +315,9 @@
   </main>
 
   <script>
+    // Replace this with your deployed Worker URL from Step 2
+    const WORKER_URL = 'https://claude-search-proxy.yourname.workers.dev';
+
     const form = document.getElementById('entry-form');
     const input = document.getElementById('entry-input');
     const engineSelect = document.getElementById('engine-select');
@@ -328,29 +331,15 @@
       pubmed: 'PubMed'
     };
 
-    const ENGINE_URLS = {
-      google: (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
-      scholar: (q) => `https://scholar.google.com/scholar?q=${encodeURIComponent(q)}`,
-      pubmed: (q) => `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(q)}`
-    };
-
     function timestamp() {
       const d = new Date();
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      const value = input.value.trim();
-      if (!value) return;
-
-      const engine = engineSelect.value;
-      const wordCount = wordCountInput.value.trim();
-
-      if (placeholder) placeholder.remove();
-
+    function addLogEntry(metaText, bodyText, isPending) {
       const entry = document.createElement('div');
       entry.className = 'entry';
+      if (isPending) entry.id = 'pending-entry';
 
       const ts = document.createElement('span');
       ts.className = 'ts';
@@ -358,21 +347,62 @@
 
       const meta = document.createElement('span');
       meta.className = 'meta';
-      meta.textContent = `[${ENGINE_LABELS[engine]}${wordCount ? ` · ${wordCount} words` : ''}]`;
+      meta.textContent = metaText;
 
       entry.appendChild(ts);
       entry.appendChild(meta);
-      entry.appendChild(document.createTextNode(value));
+      entry.appendChild(document.createTextNode(bodyText));
 
       log.appendChild(entry);
       log.scrollTop = log.scrollHeight;
+      return entry;
+    }
 
-      const url = ENGINE_URLS[engine](value);
-      window.open(url, '_blank');
+    function removePendingEntry() {
+      const pending = document.getElementById('pending-entry');
+      if (pending) pending.remove();
+    }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const value = input.value.trim();
+      if (!value) return;
+
+      const engine = engineSelect.value;
+      const wordCount = wordCountInput.value.trim();
+      const submitBtn = form.querySelector('button');
+
+      if (placeholder) placeholder.remove();
+
+      addLogEntry(`[you · ${ENGINE_LABELS[engine]}${wordCount ? ` · ${wordCount}w` : ''}] `, value);
 
       input.value = '';
-      wordCountInput.value = '';
-      input.focus();
+      submitBtn.disabled = true;
+      addLogEntry('[claude] ', 'Searching...', true);
+
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: value, engine, wordCount })
+        });
+        const data = await response.json();
+
+        removePendingEntry();
+
+        if (data.error) {
+          addLogEntry('[error] ', data.error);
+        } else {
+          addLogEntry('[claude] ', data.text);
+        }
+      } catch (err) {
+        removePendingEntry();
+        addLogEntry('[error] ', err.message);
+      } finally {
+        submitBtn.disabled = false;
+        wordCountInput.value = '';
+        input.focus();
+      }
     });
   </script>
 
