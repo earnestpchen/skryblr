@@ -38,7 +38,13 @@ export default {
       }
     ];
 
-    const MAX_ATTEMPTS = 10;
+    // Force at least one tool call on the FIRST generation attempt so the model
+    // cannot silently skip searching and answer from memory instead. On retries
+    // (feedback !== "") we relax this back to "auto" — Claude may already have
+    // enough grounded material and just needs to fix formatting/citations.
+    const toolChoiceFirstAttempt = { type: "any" };
+
+    const MAX_ATTEMPTS = 3;
     let attempt = 0;
     let feedback = "";
     let finalText = "";
@@ -48,8 +54,11 @@ export default {
       while (attempt < MAX_ATTEMPTS) {
         attempt++;
 
-        // 1. GENERATE — ask Claude to write the introduction, searching for real sources
-        const text = await generateIntroduction(env, query, wordCount, tools, feedback);
+        // 1. GENERATE — ask Claude to write the introduction, searching for real sources.
+        // Force tool use on the very first attempt; allow "auto" on retries since the
+        // model may be revising text it already grounded in real sources.
+        const toolChoice = feedback ? { type: "auto" } : toolChoiceFirstAttempt;
+        const text = await generateIntroduction(env, query, wordCount, tools, feedback, toolChoice);
         finalText = text;
 
         // 2. TEST — structural check: citations present, references present, numbers match, APA-ish shape
@@ -108,7 +117,7 @@ If there's no individual author, use the organization or site name as the author
 
 Target length for the Introduction text itself (excluding References): approximately ${wordCount} words. No title, no headers, no preamble — begin directly with the first sentence.
 
-Run [query/test/command]. Check the output against the criteria to see if the output is written as if it's an introduction of a peer review paper, there are in text citations using numbers, there is a references list at the end, every cited number has a matching reference, and the references are cited in APA format, the references actually exist online, and the information strictly comes from the references list. If it doesn't meet the criteria, diagnose why, fix it, and run again. Repeat until the criteria are met.`;
+FORMAT: Write continuous academic prose paragraphs only. Do not use Markdown formatting of any kind — no "##" headers, no "**bold**", no bullet or numbered lists, no sub-sections — anywhere in the Introduction text. The only structural element allowed is the "References" heading and its numbered list, exactly as specified above, after the prose.`;
 
   if (feedback) {
     prompt += `\n\nYour previous attempt failed review for these specific reasons:\n${feedback}\n\nFix every issue listed above. Search again if you need different or better sources.`;
@@ -117,7 +126,7 @@ Run [query/test/command]. Check the output against the criteria to see if the ou
   return prompt;
 }
 
-async function generateIntroduction(env, topic, wordCount, tools, feedback) {
+async function generateIntroduction(env, topic, wordCount, tools, feedback, toolChoice) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -126,11 +135,13 @@ async function generateIntroduction(env, topic, wordCount, tools, feedback) {
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
+      effort: "medium",
       max_tokens: 1536,
       system: buildSystemPrompt(wordCount, feedback),
       messages: [{ role: "user", content: `Topic: ${topic}` }],
-      tools
+      tools,
+      ...(toolChoice ? { tool_choice: toolChoice } : {})
     })
   });
 
@@ -153,7 +164,7 @@ function checkStructure(text) {
     issues.push("No in-text bracket citations like [1] were found in the body text.");
   }
 
-  const refHeadingMatch = text.match(/^References\s*$/im);
+  const refHeadingMatch = text.match(/^\s*#{0,3}\s*\**References\**\s*$/im);
   if (!refHeadingMatch) {
     issues.push('No "References" heading was found.');
   }
@@ -248,10 +259,12 @@ ${text}`;
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
+      effort: "medium",
       max_tokens: 700,
       messages: [{ role: "user", content: judgePrompt }],
-      tools: [{ type: "web_search_20250305", name: "web_search" }]
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      tool_choice: { type: "any" }
     })
   });
 
