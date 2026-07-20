@@ -272,7 +272,7 @@
     </div>
 
     <h1>Hello<span>.</span></h1>
-    <p class="lead">My website is live. Pick a source, type a query and a word count, then press Enter — it'll show up right here.</p>
+    <p class="lead">My website is live. Type a topic, pick a source, and set a word count — Claude will research it and write a summary right here.</p>
 
     <div class="console">
       <div class="console-header">
@@ -291,7 +291,7 @@
         <input
           type="text"
           id="entry-input"
-          placeholder="Type a message"
+          placeholder="Type a topic"
           autocomplete="off"
           maxlength="200"
         />
@@ -378,7 +378,7 @@
 
       input.value = '';
       submitBtn.disabled = true;
-      addLogEntry('[claude] ', 'Searching...', true);
+      addLogEntry('[claude] ', 'Researching and summarizing...', true);
 
       try {
         const response = await fetch(WORKER_URL, {

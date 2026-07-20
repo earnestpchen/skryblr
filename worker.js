@@ -49,8 +49,8 @@ export default {
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 1024,
-          system: `Search the web to answer the user's question using the available search tool. Keep your final answer to approximately ${wordCount} words. Be direct and skip preamble.`,
-          messages: [{ role: "user", content: query }],
+          system: `The user will give you a topic. Use the search tool to research it, then write a clear, well-organized summary of the topic based on what you find. Do not answer as if it were a question — write a standalone summary a reader with no other context could understand. Target length: exactly ${wordCount} words. No preamble, no "here is a summary" framing — start directly with the content.`,
+          messages: [{ role: "user", content: `Topic: ${query}` }],
           tools
         })
       });
