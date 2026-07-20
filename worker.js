@@ -38,11 +38,8 @@ export default {
       }
     ];
 
-    // Force at least one tool call on the FIRST generation attempt so the model
-    // cannot silently skip searching and answer from memory instead. On retries
-    // (feedback !== "") we relax this back to "auto" — Claude may already have
-    // enough grounded material and just needs to fix formatting/citations.
-    const toolChoiceFirstAttempt = { type: "any" };
+    // Force at least one tool call on every generation attempt so the model
+    // cannot silently skip searching and answer from memory instead.
 
     const MAX_ATTEMPTS = 3;
     let attempt = 0;
@@ -55,10 +52,9 @@ export default {
         attempt++;
 
         // 1. GENERATE — ask Claude to write the introduction, searching for real sources.
-        // Force tool use on the very first attempt; allow "auto" on retries since the
-        // model may be revising text it already grounded in real sources.
-        const toolChoice = feedback ? { type: "auto" } : toolChoiceFirstAttempt;
-        const text = await generateIntroduction(env, query, wordCount, tools, feedback, toolChoice);
+        // Force tool use on every attempt so a citation/formatting failure never
+        // licenses the model to fall back on answering from memory on a retry.
+        const text = await generateIntroduction(env, query, wordCount, tools, feedback, { type: "any" });
         finalText = text;
 
         // 2. TEST — structural check: citations present, references present, numbers match, APA-ish shape
@@ -159,12 +155,29 @@ async function generateIntroduction(env, topic, wordCount, tools, feedback, tool
 function checkStructure(text) {
   const issues = [];
 
+  // Split off the References section first so Markdown checks below don't
+  // penalize the numbered list itself, only the Introduction prose.
+  const refHeadingMatchForSplit = text.match(/^\s*#{0,3}\s*\**References\**\s*$/im);
+  const introBody = refHeadingMatchForSplit
+    ? text.slice(0, text.indexOf(refHeadingMatchForSplit[0]))
+    : text;
+
+  if (/^\s{0,3}#{1,6}\s/m.test(introBody)) {
+    issues.push('Markdown headers (e.g. "##") were found in the Introduction body — it must be continuous prose with no headers.');
+  }
+  if (/\*\*[^*]+\*\*/.test(introBody)) {
+    issues.push('Markdown bold ("**text**") was found in the Introduction body — remove all bold formatting.');
+  }
+  if (/^\s*[-*+]\s|^\s*\d+\.\s/m.test(introBody)) {
+    issues.push("Bullet or numbered list formatting was found in the Introduction body — it must be continuous prose paragraphs, not a list.");
+  }
+
   const inTextNumbers = [...text.matchAll(/\[(\d+)\]/g)].map(m => parseInt(m[1]));
   if (inTextNumbers.length === 0) {
     issues.push("No in-text bracket citations like [1] were found in the body text.");
   }
 
-  const refHeadingMatch = text.match(/^\s*#{0,3}\s*\**References\**\s*$/im);
+  const refHeadingMatch = refHeadingMatchForSplit;
   if (!refHeadingMatch) {
     issues.push('No "References" heading was found.');
   }
