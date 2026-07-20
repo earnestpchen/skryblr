@@ -148,6 +148,11 @@
     margin-right: 8px;
   }
 
+  #log .entry .meta {
+    color: var(--accent);
+    margin-right: 8px;
+  }
+
   #log .placeholder {
     color: var(--text-dim);
     font-style: italic;
@@ -160,6 +165,7 @@
 
   form {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     padding: 12px 14px;
@@ -173,7 +179,7 @@
   }
 
   input[type="text"] {
-    flex: 1;
+    flex: 1 1 140px;
     background: transparent;
     border: none;
     outline: none;
@@ -181,10 +187,38 @@
     font-family: var(--font-mono);
     font-size: 14px;
     padding: 6px 0;
+    min-width: 0;
   }
 
-  input[type="text"]::placeholder {
+  input[type="text"]::placeholder,
+  input[type="number"]::placeholder {
     color: var(--text-dim);
+  }
+
+  select#engine-select,
+  input[type="number"]#word-count-input {
+    background: #12141c;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 7px 8px;
+    outline: none;
+  }
+
+  select#engine-select {
+    cursor: pointer;
+  }
+
+  input[type="number"]#word-count-input {
+    width: 90px;
+  }
+
+  select#engine-select:focus-visible,
+  input[type="number"]#word-count-input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   button {
@@ -238,7 +272,7 @@
     </div>
 
     <h1>Hello<span>.</span></h1>
-    <p class="lead">My website is live. Type something below and press Enter — it'll show up right here.</p>
+    <p class="lead">My website is live. Pick a source, type a query and a word count, then press Enter — it'll show up right here.</p>
 
     <div class="console">
       <div class="console-header">
@@ -261,6 +295,18 @@
           autocomplete="off"
           maxlength="200"
         />
+        <select id="engine-select" aria-label="Search source">
+          <option value="google">google.com</option>
+          <option value="scholar">Google Scholar</option>
+          <option value="pubmed">PubMed</option>
+        </select>
+        <input
+          type="number"
+          id="word-count-input"
+          placeholder="Word count"
+          min="1"
+          aria-label="Word count"
+        />
         <button type="submit">Enter</button>
       </form>
     </div>
@@ -271,8 +317,22 @@
   <script>
     const form = document.getElementById('entry-form');
     const input = document.getElementById('entry-input');
+    const engineSelect = document.getElementById('engine-select');
+    const wordCountInput = document.getElementById('word-count-input');
     const log = document.getElementById('log');
     const placeholder = document.getElementById('placeholder-line');
+
+    const ENGINE_LABELS = {
+      google: 'google.com',
+      scholar: 'Google Scholar',
+      pubmed: 'PubMed'
+    };
+
+    const ENGINE_URLS = {
+      google: (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+      scholar: (q) => `https://scholar.google.com/scholar?q=${encodeURIComponent(q)}`,
+      pubmed: (q) => `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(q)}`
+    };
 
     function timestamp() {
       const d = new Date();
@@ -284,6 +344,9 @@
       const value = input.value.trim();
       if (!value) return;
 
+      const engine = engineSelect.value;
+      const wordCount = wordCountInput.value.trim();
+
       if (placeholder) placeholder.remove();
 
       const entry = document.createElement('div');
@@ -293,13 +356,22 @@
       ts.className = 'ts';
       ts.textContent = timestamp();
 
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.textContent = `[${ENGINE_LABELS[engine]}${wordCount ? ` · ${wordCount} words` : ''}]`;
+
       entry.appendChild(ts);
+      entry.appendChild(meta);
       entry.appendChild(document.createTextNode(value));
 
       log.appendChild(entry);
       log.scrollTop = log.scrollHeight;
 
+      const url = ENGINE_URLS[engine](value);
+      window.open(url, '_blank');
+
       input.value = '';
+      wordCountInput.value = '';
       input.focus();
     });
   </script>
