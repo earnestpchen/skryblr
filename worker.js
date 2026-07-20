@@ -48,8 +48,14 @@ export default {
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 1024,
-          system: `The user will give you a topic. Use the search tool to research it, then write a clear, well-organized summary of the topic based on what you find. Do not answer as if it were a question — write a standalone summary a reader with no other context could understand. Target length: exactly ${wordCount} words. No preamble, no "here is a summary" framing — start directly with the content.`,
+          max_tokens: 1536,
+          system: `The user will give you a topic. Use the search tool to research it, then write a clear, well-organized summary of the topic based on what you find. Do not answer as if it were a question — write a standalone summary a reader with no other context could understand.
+
+Add in-text citations as bracketed numbers, e.g. [1], [2], placed immediately after the specific claim they support. Reuse the same number if you cite the same source again later. Only cite sources you actually found via the search tool — never invent a URL or title.
+
+After the summary, add a blank line, then a line that says "References", then a numbered list (one per line) matching each citation, formatted as: Title — URL
+
+The references list does not count toward the word limit below. Target length for the summary itself: exactly ${wordCount} words. No preamble, no "here is a summary" framing — start directly with the content.`,
           messages: [{ role: "user", content: `Topic: ${query}` }],
           tools
         })
