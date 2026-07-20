@@ -106,7 +106,9 @@ If there's no individual author, use the organization or site name as the author
 - Every bracket number in the text must have exactly one matching numbered entry in References, and every reference must be cited at least once in the text.
 - Only cite sources actually returned by the search tool. Never invent a title, author, date, or URL.
 
-Target length for the Introduction text itself (excluding References): approximately ${wordCount} words. No title, no headers, no preamble — begin directly with the first sentence.`;
+Target length for the Introduction text itself (excluding References): approximately ${wordCount} words. No title, no headers, no preamble — begin directly with the first sentence.
+
+Run [query/test/command]. Check the output against the criteria to see if the output is written as if it's an introduction of a peer review paper, there are in text citations using numbers, there is a references list at the end, every cited number has a matching reference, and the references are cited in APA format, the references actually exist online, and the information strictly comes from the references list. If it doesn't meet the criteria, diagnose why, fix it, and run again. Repeat until the criteria are met.`;
 
   if (feedback) {
     prompt += `\n\nYour previous attempt failed review for these specific reasons:\n${feedback}\n\nFix every issue listed above. Search again if you need different or better sources.`;
