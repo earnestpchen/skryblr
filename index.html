@@ -634,7 +634,7 @@
     </div>
 
     <h1>Welcome to Skryblr!<span>.</span></h1>
-    <p class="lead">Type a topic, choose a research source, and set a word count. We will generate a reusable prompt for any browsing-capable LLM to write you a peer review grade summary with in-text citations and references list. And the best part is that your AI agent will iteratively check its own work until it's sure that the information is correct and the sources are legit! Just copy paste your newly generated prompt into chatGPT or Claude and see the magic happen. Register or log in to save your queries.</p>
+    <p class="lead">Type a topic, choose a research source, and set a word count. We will generate a reusable prompt for any browsing-capable LLM to write you a peer review grade summary with in-text citations and references list. And the best part is that your AI agent will iteratively check its own work until it's sure that the information is correct and the sources are legit!</p>
 
     <div class="console">
       <div class="console-header">
@@ -784,7 +784,7 @@
 
       input.value = '';
       submitBtn.disabled = true;
-      setPanel('pending', 'Designing and validating your research prompt... May take up to a minute');
+      setPanel('pending', 'Designing and validating your research prompt...');
 
       try {
         const response = await fetch(WORKER_URL, {
@@ -1005,22 +1005,34 @@
     function renderAdminStats(data) {
       const t = data.totals || {};
       let html = '<div class="admin-totals">' +
-        '<div class="admin-stat"><div class="num">' + (t.userCount ?? 0) + '</div><div class="lbl">Users</div></div>' +
-        '<div class="admin-stat"><div class="num">' + (t.totalGenerations ?? 0) + '</div><div class="lbl">Total prompts</div></div>' +
-        '<div class="admin-stat"><div class="num">' + (t.savedGenerations ?? 0) + '</div><div class="lbl">Saved to accounts</div></div>' +
+        '<div class="admin-stat"><div class="num">' + (t.totalVisits ?? 0) + '</div><div class="lbl">Visits</div></div>' +
+        '<div class="admin-stat"><div class="num">' + (t.uniqueVisitors ?? 0) + '</div><div class="lbl">Unique visitors</div></div>' +
+        '<div class="admin-stat"><div class="num">' + (t.totalQueries ?? 0) + '</div><div class="lbl">Queries</div></div>' +
+        '</div>' +
+        '<div class="admin-totals">' +
+        '<div class="admin-stat"><div class="num">' + (t.userCount ?? 0) + '</div><div class="lbl">Registered users</div></div>' +
+        '<div class="admin-stat"><div class="num">' + (t.queriesByUsers ?? 0) + '</div><div class="lbl">Queries by users</div></div>' +
+        '<div class="admin-stat"><div class="num">' + (t.queriesAnon ?? 0) + '</div><div class="lbl">Queries by guests</div></div>' +
         '</div>';
 
-      // Daily activity (simple text bars)
+      // Daily activity — visits and queries side by side per day.
       if (data.daily && data.daily.length) {
-        const max = Math.max(...data.daily.map(d => d.count), 1);
-        html += '<div class="history-header" style="margin-top:6px;">Prompts per day</div>';
+        const max = Math.max(...data.daily.map(d => Math.max(d.visits || 0, d.queries || 0)), 1);
+        html += '<div class="history-header" style="margin-top:6px;">Daily traffic</div>';
+        html += '<div style="display:flex;gap:10px;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-bottom:4px;">' +
+          '<span><span style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:2px;"></span> visits</span>' +
+          '<span><span style="display:inline-block;width:8px;height:8px;background:var(--ok);border-radius:2px;"></span> queries</span>' +
+          '</div>';
         html += '<div style="margin-bottom:12px;">';
         for (const d of data.daily) {
-          const pct = Math.round((d.count / max) * 100);
-          html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;font-family:var(--font-mono);font-size:11px;">' +
-            '<span style="color:var(--text-dim);width:74px;flex-shrink:0;">' + escapeHtmlAdmin(d.date) + '</span>' +
-            '<span style="flex:1;background:#0d0f16;border-radius:3px;overflow:hidden;"><span style="display:block;height:12px;width:' + pct + '%;background:var(--accent);"></span></span>' +
-            '<span style="color:var(--text);width:28px;text-align:right;">' + d.count + '</span>' +
+          const vPct = Math.round(((d.visits || 0) / max) * 100);
+          const qPct = Math.round(((d.queries || 0) / max) * 100);
+          html += '<div style="margin-bottom:5px;font-family:var(--font-mono);font-size:11px;">' +
+            '<div style="color:var(--text-dim);margin-bottom:1px;">' + escapeHtmlAdmin(d.date) +
+              ' — ' + (d.visits || 0) + ' visit' + ((d.visits||0)===1?'':'s') +
+              ' (' + (d.uniqueVisitors || 0) + ' unique), ' + (d.queries || 0) + ' quer' + ((d.queries||0)===1?'y':'ies') + '</div>' +
+            '<span style="display:block;height:8px;width:' + vPct + '%;min-width:2px;background:var(--accent);border-radius:2px;margin-bottom:1px;"></span>' +
+            '<span style="display:block;height:8px;width:' + qPct + '%;min-width:2px;background:var(--ok);border-radius:2px;"></span>' +
             '</div>';
         }
         html += '</div>';
@@ -1070,6 +1082,27 @@
 
     // Restore session on page load (also captures admin status).
     checkSession();
+
+    // Record a page visit once per load. A persistent visitor id (stored in a
+    // cookie) lets the server de-duplicate reloads into unique-visitors-per-day.
+    (function trackVisit() {
+      function getVisitorId() {
+        const m = document.cookie.match(/(?:^|;\s*)visitorId=([^;]+)/);
+        if (m) return decodeURIComponent(m[1]);
+        const id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+        // 1-year cookie
+        document.cookie = 'visitorId=' + encodeURIComponent(id) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+        return id;
+      }
+      try {
+        const visitorId = getVisitorId();
+        fetch(WORKER_URL + '/track/visit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visitorId })
+        }).catch(() => {});
+      } catch (e) { /* ignore */ }
+    })();
   </script>
 
 </body>
