@@ -816,6 +816,16 @@
   </aside>
   </div>
 
+  <div class="modal-overlay" id="attach-reminder" role="dialog" aria-modal="true" aria-labelledby="attach-reminder-title" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-icon">📎</div>
+      <h3 id="attach-reminder-title">One last thing</h3>
+      <p>Your manuscript prompt is ready. Before you run it, make sure you have your <strong>Methods and Results</strong> on hand — the AI needs them to write those sections.</p>
+      <p class="modal-sub">When you paste the prompt into Claude, ChatGPT, or your AI tool of choice, remember to <strong>attach your methods and results files alongside it</strong>. Without them, the AI can't complete the manuscript.</p>
+      <button type="button" id="attach-reminder-ok">Got it</button>
+    </div>
+  </div>
+
   <script>
     // Replace this with your deployed Worker URL from Step 2
     const WORKER_URL = 'https://claude-search-proxy.earnestchen-search.workers.dev';
@@ -1267,15 +1277,6 @@
       } catch (e) { /* ignore */ }
     })();
   </script>
-  <div class="modal-overlay" id="attach-reminder" role="dialog" aria-modal="true" aria-labelledby="attach-reminder-title" style="display:none;">
-    <div class="modal-card">
-      <div class="modal-icon">📎</div>
-      <h3 id="attach-reminder-title">One last thing</h3>
-      <p>Your manuscript prompt is ready. Before you run it, make sure you have your <strong>Methods and Results</strong> on hand — the AI needs them to write those sections.</p>
-      <p class="modal-sub">When you paste the prompt into Claude, ChatGPT, or your AI tool of choice, remember to <strong>attach your methods and results files alongside it</strong>. Without them, the AI can't complete the manuscript.</p>
-      <button type="button" id="attach-reminder-ok">Got it</button>
-    </div>
-  </div>
 
 </body>
 </html>
