@@ -541,6 +541,8 @@
   }
 
   select#engine-select,
+  select#mode-select,
+  input#journal-input,
   input[type="number"]#word-count-input {
     background: #12141c;
     border: 1px solid var(--line);
@@ -552,8 +554,14 @@
     outline: none;
   }
 
-  select#engine-select {
+  select#engine-select,
+  select#mode-select {
     cursor: pointer;
+  }
+
+  select#mode-select,
+  input#journal-input {
+    width: 100%;
   }
 
   input[type="number"]#word-count-input {
@@ -561,6 +569,8 @@
   }
 
   select#engine-select:focus-visible,
+  select#mode-select:focus-visible,
+  input#journal-input:focus-visible,
   input[type="number"]#word-count-input:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -605,6 +615,99 @@
   @media (prefers-reduced-motion: reduce) {
     .dot { animation: none; }
     #log .entry { animation: none; opacity: 1; }
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 7, 11, 0.72);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1000;
+    animation: modalFade 0.18s ease;
+  }
+
+  @keyframes modalFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .modal-card {
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 28px 26px 22px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 40px 80px -20px rgba(0,0,0,0.7);
+    text-align: center;
+    animation: modalPop 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+
+  @keyframes modalPop {
+    from { transform: scale(0.94) translateY(6px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .modal-icon {
+    font-size: 34px;
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+
+  .modal-card h3 {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 700;
+    margin: 0 0 10px;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .modal-card p {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+    margin: 0 0 12px;
+  }
+
+  .modal-card p.modal-sub {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .modal-card strong {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .modal-card button {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #0d0f16;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: filter 0.15s ease, transform 0.15s ease;
+  }
+
+  .modal-card button:hover { filter: brightness(1.08); }
+  .modal-card button:active { transform: scale(0.97); }
+  .modal-card button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .modal-overlay, .modal-card { animation: none; }
   }
 </style>
 </head>
@@ -654,11 +757,23 @@
           <input
             type="text"
             id="entry-input"
-            placeholder="Type a topic"
+            placeholder="Type a topic or working title"
             autocomplete="off"
-            maxlength="200"
+            maxlength="300"
           />
         </div>
+        <select id="mode-select" aria-label="What to generate">
+          <option value="intro">Introduction prompt (for a peer-review paper)</option>
+          <option value="manuscript">Full manuscript prompt (needs methods + results attachments)</option>
+        </select>
+        <input
+          type="text"
+          id="journal-input"
+          placeholder="Target journal (e.g. Nature, Cell, JAMA)"
+          autocomplete="off"
+          maxlength="150"
+          style="width: 100%; display: none;"
+        />
         <select id="engine-select" aria-label="Search source">
           <option value="google">google.com</option>
           <option value="scholar">Google Scholar</option>
@@ -709,10 +824,29 @@
     const input = document.getElementById('entry-input');
     const engineSelect = document.getElementById('engine-select');
     const wordCountInput = document.getElementById('word-count-input');
+    const modeSelect = document.getElementById('mode-select');
+    const journalInput = document.getElementById('journal-input');
     const log = document.getElementById('log');
     const placeholder = document.getElementById('placeholder-line');
     const panelBody = document.getElementById('panel-body');
     const panelMeta = document.getElementById('panel-meta');
+    const panelTitle = document.getElementById('panel-title');
+
+    const MODE_LABELS = {
+      intro: 'Introduction prompt',
+      manuscript: 'Manuscript prompt'
+    };
+
+    // Show the journal field only for full-manuscript mode, and update the
+    // word-count hint to match what the number means in each mode.
+    function syncModeUI() {
+      const isManuscript = modeSelect.value === 'manuscript';
+      journalInput.style.display = isManuscript ? 'block' : 'none';
+      wordCountInput.placeholder = isManuscript ? 'Main-text word count' : 'Word count';
+      input.placeholder = isManuscript ? 'Working title of the manuscript' : 'Type a topic';
+    }
+    modeSelect.addEventListener('change', syncModeUI);
+    syncModeUI();
 
     const ENGINE_LABELS = {
       google: 'google.com',
@@ -768,6 +902,25 @@
       }
     }
 
+    // ---- Attachment reminder modal (manuscript mode) ------------------------
+    const attachReminder = document.getElementById('attach-reminder');
+    const attachReminderOk = document.getElementById('attach-reminder-ok');
+
+    function showAttachReminder() {
+      attachReminder.style.display = 'flex';
+      attachReminderOk.focus();
+    }
+    function hideAttachReminder() {
+      attachReminder.style.display = 'none';
+    }
+    attachReminderOk.addEventListener('click', hideAttachReminder);
+    attachReminder.addEventListener('click', (e) => {
+      if (e.target === attachReminder) hideAttachReminder(); // click outside the card
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && attachReminder.style.display === 'flex') hideAttachReminder();
+    });
+
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       const value = input.value.trim();
@@ -775,23 +928,29 @@
 
       const engine = engineSelect.value;
       const wordCount = wordCountInput.value.trim();
+      const mode = modeSelect.value;
+      const journal = journalInput.value.trim();
       const submitBtn = form.querySelector('button');
 
       if (placeholder) placeholder.remove();
 
-      addLogEntry(`[you · ${ENGINE_LABELS[engine]}${wordCount ? ` · ${wordCount}w` : ''}] `, value);
-      panelMeta.textContent = `${ENGINE_LABELS[engine]}${wordCount ? ` · ${wordCount}w` : ''}`;
+      const metaBits = `${MODE_LABELS[mode] || mode}${journal ? ` · ${journal}` : ''}${wordCount ? ` · ${wordCount}w` : ''}`;
+      addLogEntry(`[you · ${metaBits}] `, value);
+      panelMeta.textContent = metaBits;
+      if (panelTitle) panelTitle.textContent = mode === 'manuscript' ? 'Manuscript Prompt' : 'Copy-Paste Prompt';
 
       input.value = '';
       submitBtn.disabled = true;
-      setPanel('pending', 'Designing and validating your research prompt...');
+      setPanel('pending', mode === 'manuscript'
+        ? 'Designing your full-manuscript prompt...'
+        : 'Designing and validating your research prompt...');
 
       try {
         const response = await fetch(WORKER_URL, {
           method: 'POST',
           credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: value, engine, wordCount })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: value, engine, wordCount, mode, journal })
         });
         const data = await response.json();
 
@@ -813,6 +972,7 @@
         } else {
           setPanel('', data.text);
           if (currentUserEmail) refreshHistory(); // a clean pass while logged in was auto-saved server-side
+          if (mode === 'manuscript') showAttachReminder();
         }
       } catch (err) {
         setPanel('error', err.message);
@@ -955,7 +1115,10 @@
         btn.title = entry.query;
         btn.textContent = `${entry.query} — ${formatTimestamp(entry.timestamp)}`;
         btn.addEventListener('click', () => {
-          panelMeta.textContent = `${ENGINE_LABELS[entry.engine] || entry.engine}${entry.wordCount ? ` · ${entry.wordCount}w` : ''}`;
+          const modeLabel = entry.mode === 'manuscript' ? 'Manuscript prompt' : 'Introduction prompt';
+          const bits = `${modeLabel}${entry.journal ? ` · ${entry.journal}` : ''}${entry.wordCount ? ` · ${entry.wordCount}w` : ''}`;
+          panelMeta.textContent = bits;
+          if (panelTitle) panelTitle.textContent = entry.mode === 'manuscript' ? 'Manuscript Prompt' : 'Copy-Paste Prompt';
           setPanel('', entry.text);
         });
 
@@ -1104,6 +1267,15 @@
       } catch (e) { /* ignore */ }
     })();
   </script>
+  <div class="modal-overlay" id="attach-reminder" role="dialog" aria-modal="true" aria-labelledby="attach-reminder-title" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-icon">📎</div>
+      <h3 id="attach-reminder-title">One last thing</h3>
+      <p>Your manuscript prompt is ready. Before you run it, make sure you have your <strong>Methods and Results</strong> on hand — the AI needs them to write those sections.</p>
+      <p class="modal-sub">When you paste the prompt into Claude, ChatGPT, or your AI tool of choice, remember to <strong>attach your methods and results files alongside it</strong>. Without them, the AI can't complete the manuscript.</p>
+      <button type="button" id="attach-reminder-ok">Got it</button>
+    </div>
+  </div>
 
 </body>
 </html>
