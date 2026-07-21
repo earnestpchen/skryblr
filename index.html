@@ -276,6 +276,114 @@
     filter: none;
   }
 
+  .admin-section {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  .admin-totals {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .admin-stat {
+    flex: 1 1 80px;
+    background: #12141c;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .admin-stat .num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .admin-stat .lbl {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+
+  .admin-user {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+
+  .admin-user-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #12141c;
+    cursor: pointer;
+  }
+
+  .admin-user-head:hover { background: #16192260; }
+
+  .admin-user-email {
+    font-size: 12.5px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-user-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .admin-user-body {
+    padding: 6px 10px;
+    display: none;
+  }
+
+  .admin-user-body.open { display: block; }
+
+  .admin-prompt {
+    border-top: 1px solid var(--line);
+    padding: 8px 0;
+    font-size: 12px;
+  }
+
+  .admin-prompt-topic {
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .admin-prompt-time {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .admin-prompt-text {
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    max-height: 120px;
+    overflow-y: auto;
+    background: #0d0f16;
+    padding: 6px;
+    border-radius: 4px;
+  }
+
   @media (max-width: 760px) {
     .layout {
       flex-direction: column;
@@ -504,7 +612,7 @@
 
   <div class="layout">
   <main class="card">
-    <div class="auth-bar" id="auth-bar" style="display:none;">
+    <div class="auth-bar" id="auth-bar">
       <div class="auth-loggedout" id="auth-loggedout">
         <input type="email" id="auth-email" placeholder="email" autocomplete="username" />
         <input type="password" id="auth-password" placeholder="password" autocomplete="current-password" />
@@ -576,11 +684,17 @@
         <div class="history-empty">No saved entries yet.</div>
       </div>
     </div>
+
+    <div class="admin-section" id="admin-section" style="display:none;">
+      <div class="history-header">Admin — usage statistics</div>
+      <button type="button" id="admin-refresh-btn" class="secondary" style="width:100%; margin-bottom:10px;">Load / refresh stats</button>
+      <div id="admin-content"></div>
+    </div>
   </main>
 
   <aside class="panel">
     <div class="panel-header">
-      <h2>Copy-Paste Prompt</h2>
+      <h2 id="panel-title">Copy-Paste Prompt</h2>
       <span class="panel-meta" id="panel-meta"></span>
     </div>
     <div class="panel-body placeholder" id="panel-body">Your reusable research prompt will appear here once you submit a topic.</div>
@@ -711,6 +825,7 @@
 
     // ---- Auth ---------------------------------------------------------------
     let currentUserEmail = null;
+    let currentUserIsAdmin = false;
 
     const authLoggedOut = document.getElementById('auth-loggedout');
     const authLoggedIn = document.getElementById('auth-loggedin');
@@ -720,17 +835,23 @@
     const authEmailLabel = document.getElementById('auth-email-label');
     const historySection = document.getElementById('history-section');
     const historyList = document.getElementById('history-list');
+    const adminSection = document.getElementById('admin-section');
+    const adminContent = document.getElementById('admin-content');
+    const authBar = document.getElementById('auth-bar');
 
     function renderAuthState() {
+      authBar.style.display = 'block'; // the auth bar is always visible
       if (currentUserEmail) {
         authLoggedOut.style.display = 'none';
         authLoggedIn.style.display = 'flex';
-        authEmailLabel.textContent = currentUserEmail;
+        authEmailLabel.textContent = currentUserEmail + (currentUserIsAdmin ? ' (admin)' : '');
         historySection.style.display = 'block';
+        adminSection.style.display = currentUserIsAdmin ? 'block' : 'none';
       } else {
         authLoggedOut.style.display = 'flex';
         authLoggedIn.style.display = 'none';
         historySection.style.display = 'none';
+        adminSection.style.display = 'none';
       }
     }
 
@@ -753,9 +874,8 @@
           email: authEmailInput.value.trim(),
           password: authPasswordInput.value
         });
-        currentUserEmail = data.email;
         authPasswordInput.value = '';
-        renderAuthState();
+        await checkSession(); // sets currentUserEmail + admin flag from /auth/me
         refreshHistory();
       } catch (err) {
         authError.textContent = err.message;
@@ -769,9 +889,8 @@
           email: authEmailInput.value.trim(),
           password: authPasswordInput.value
         });
-        currentUserEmail = data.email;
         authPasswordInput.value = '';
-        renderAuthState();
+        await checkSession(); // sets currentUserEmail + admin flag from /auth/me
         refreshHistory();
       } catch (err) {
         authError.textContent = err.message;
@@ -783,6 +902,7 @@
         await fetch(WORKER_URL + '/auth/logout', { method: 'POST', credentials: 'include' });
       } catch (err) { /* ignore — clear client state regardless */ }
       currentUserEmail = null;
+      currentUserIsAdmin = false;
       renderAuthState();
     });
 
@@ -791,8 +911,10 @@
         const res = await fetch(WORKER_URL + '/auth/me', { method: 'GET', credentials: 'include' });
         const data = await res.json();
         currentUserEmail = data.email || null;
+        currentUserIsAdmin = !!data.isAdmin;
       } catch (err) {
         currentUserEmail = null;
+        currentUserIsAdmin = false;
       }
       renderAuthState();
       if (currentUserEmail) refreshHistory();
@@ -858,7 +980,96 @@
       }
     }
 
-    // Authentication/history are disabled in this prompt-generator version.
+    // ---- Admin usage statistics ---------------------------------------------
+    function escapeHtmlAdmin(str) {
+      const d = document.createElement('div');
+      d.textContent = str == null ? '' : String(str);
+      return d.innerHTML;
+    }
+
+    async function loadAdminStats() {
+      adminContent.innerHTML = '<div class="history-empty">Loading…</div>';
+      try {
+        const res = await fetch(WORKER_URL + '/admin/stats', { method: 'GET', credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) {
+          adminContent.innerHTML = '<div class="history-empty">' + escapeHtmlAdmin(data.error || 'Failed to load stats') + '</div>';
+          return;
+        }
+        renderAdminStats(data);
+      } catch (err) {
+        adminContent.innerHTML = '<div class="history-empty">' + escapeHtmlAdmin(err.message) + '</div>';
+      }
+    }
+
+    function renderAdminStats(data) {
+      const t = data.totals || {};
+      let html = '<div class="admin-totals">' +
+        '<div class="admin-stat"><div class="num">' + (t.userCount ?? 0) + '</div><div class="lbl">Users</div></div>' +
+        '<div class="admin-stat"><div class="num">' + (t.totalGenerations ?? 0) + '</div><div class="lbl">Total prompts</div></div>' +
+        '<div class="admin-stat"><div class="num">' + (t.savedGenerations ?? 0) + '</div><div class="lbl">Saved to accounts</div></div>' +
+        '</div>';
+
+      // Daily activity (simple text bars)
+      if (data.daily && data.daily.length) {
+        const max = Math.max(...data.daily.map(d => d.count), 1);
+        html += '<div class="history-header" style="margin-top:6px;">Prompts per day</div>';
+        html += '<div style="margin-bottom:12px;">';
+        for (const d of data.daily) {
+          const pct = Math.round((d.count / max) * 100);
+          html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;font-family:var(--font-mono);font-size:11px;">' +
+            '<span style="color:var(--text-dim);width:74px;flex-shrink:0;">' + escapeHtmlAdmin(d.date) + '</span>' +
+            '<span style="flex:1;background:#0d0f16;border-radius:3px;overflow:hidden;"><span style="display:block;height:12px;width:' + pct + '%;background:var(--accent);"></span></span>' +
+            '<span style="color:var(--text);width:28px;text-align:right;">' + d.count + '</span>' +
+            '</div>';
+        }
+        html += '</div>';
+      }
+
+      // Per-user detail (collapsible; click a user to expand their prompts)
+      html += '<div class="history-header" style="margin-top:6px;">Per-user activity</div>';
+      if (!data.users || !data.users.length) {
+        html += '<div class="history-empty">No users yet.</div>';
+      } else {
+        data.users.forEach((u, i) => {
+          const last = u.lastActive ? formatTimestamp(u.lastActive) : '—';
+          html += '<div class="admin-user">' +
+            '<div class="admin-user-head" data-idx="' + i + '">' +
+              '<span class="admin-user-email">' + escapeHtmlAdmin(u.email) + '</span>' +
+              '<span class="admin-user-meta">' + u.generationCount + ' prompt' + (u.generationCount === 1 ? '' : 's') + ' · ' + escapeHtmlAdmin(last) + '</span>' +
+            '</div>' +
+            '<div class="admin-user-body" data-body="' + i + '">';
+          if (!u.history || !u.history.length) {
+            html += '<div class="history-empty">No saved prompts.</div>';
+          } else {
+            for (const h of u.history) {
+              html += '<div class="admin-prompt">' +
+                '<div class="admin-prompt-topic">' + escapeHtmlAdmin(h.query) + '</div>' +
+                '<div class="admin-prompt-time">' + formatTimestamp(h.timestamp) + ' · ' + escapeHtmlAdmin(h.engine || '') + ' · ' + (h.wordCount || '') + 'w</div>' +
+                '<div class="admin-prompt-text">' + escapeHtmlAdmin(h.text) + '</div>' +
+              '</div>';
+            }
+          }
+          html += '</div></div>';
+        });
+      }
+
+      adminContent.innerHTML = html;
+
+      // Wire up collapse/expand
+      adminContent.querySelectorAll('.admin-user-head').forEach(head => {
+        head.addEventListener('click', () => {
+          const idx = head.getAttribute('data-idx');
+          const bodyEl = adminContent.querySelector('.admin-user-body[data-body="' + idx + '"]');
+          if (bodyEl) bodyEl.classList.toggle('open');
+        });
+      });
+    }
+
+    document.getElementById('admin-refresh-btn').addEventListener('click', loadAdminStats);
+
+    // Restore session on page load (also captures admin status).
+    checkSession();
   </script>
 
 </body>
