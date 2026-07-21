@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Skryblr</title>
+<title>My Website</title>
 <style>
   :root {
     --bg: #12141c;
@@ -123,6 +123,157 @@
 
   .panel-body.error {
     color: #f27070;
+  }
+
+  .auth-bar {
+    margin-bottom: 18px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .auth-loggedout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .auth-loggedout input {
+    flex: 1 1 120px;
+    background: #12141c;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 7px 8px;
+    outline: none;
+    min-width: 0;
+  }
+
+  .auth-loggedout input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .auth-buttons {
+    display: flex;
+    gap: 6px;
+    flex: 1 1 100%;
+  }
+
+  .auth-buttons button {
+    flex: 1;
+  }
+
+  button.secondary {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+  }
+
+  button.secondary:hover {
+    color: var(--text);
+    filter: none;
+  }
+
+  .auth-error {
+    flex: 1 1 100%;
+    color: #f27070;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    min-height: 14px;
+  }
+
+  .auth-loggedin {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .auth-email-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .history-section {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  .history-header {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .history-list {
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .history-empty {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 12.5px;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #12141c;
+  }
+
+  .history-item-query {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    color: var(--text);
+    cursor: pointer;
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 0;
+    font-family: var(--font-body);
+  }
+
+  .history-item-query:hover {
+    color: var(--accent);
+  }
+
+  .history-item-delete {
+    flex: 0 0 auto;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .history-item-delete:hover {
+    color: #f27070;
+    filter: none;
   }
 
   @media (max-width: 760px) {
@@ -353,13 +504,29 @@
 
   <div class="layout">
   <main class="card">
+    <div class="auth-bar" id="auth-bar">
+      <div class="auth-loggedout" id="auth-loggedout">
+        <input type="email" id="auth-email" placeholder="email" autocomplete="username" />
+        <input type="password" id="auth-password" placeholder="password" autocomplete="current-password" />
+        <div class="auth-buttons">
+          <button type="button" id="auth-login-btn">Log in</button>
+          <button type="button" id="auth-signup-btn" class="secondary">Sign up</button>
+        </div>
+        <div class="auth-error" id="auth-error"></div>
+      </div>
+      <div class="auth-loggedin" id="auth-loggedin" style="display:none;">
+        <span class="auth-email-label" id="auth-email-label"></span>
+        <button type="button" id="auth-logout-btn" class="secondary">Log out</button>
+      </div>
+    </div>
+
     <div class="status-row">
       <span class="dot"></span>
       <span>Status: Live</span>
     </div>
 
-    <h1>Welcome to Skryblr<span>.</span></h1>
-    <p class="lead">Type a topic, pick a database, and set a word count — I will research it and write a summary for you.</p>
+    <h1>Hello<span>.</span></h1>
+    <p class="lead">My website is live. Type a topic, pick a source, and set a word count — Claude will research it and write a summary on the right.</p>
 
     <div class="console">
       <div class="console-header">
@@ -402,6 +569,13 @@
     </div>
 
     <footer>Press Enter or click the button to submit.</footer>
+
+    <div class="history-section" id="history-section" style="display:none;">
+      <div class="history-header">Saved history</div>
+      <div class="history-list" id="history-list">
+        <div class="history-empty">No saved entries yet.</div>
+      </div>
+    </div>
   </main>
 
   <aside class="panel">
@@ -496,11 +670,12 @@
 
       input.value = '';
       submitBtn.disabled = true;
-      setPanel('pending', 'Researching, summarizing, and double checking my work... this may take up to a few minutes!');
+      setPanel('pending', 'Researching and summarizing...');
 
       try {
         const response = await fetch(WORKER_URL, {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: value, engine, wordCount })
         });
@@ -522,6 +697,7 @@
         } else {
           if (data.outline) addLogEntry('[outline] ', data.outline);
           setPanel('', data.text);
+          if (currentUserEmail) refreshHistory(); // a clean pass while logged in was auto-saved server-side
         }
       } catch (err) {
         setPanel('error', err.message);
@@ -531,6 +707,158 @@
         input.focus();
       }
     });
+
+    // ---- Auth ---------------------------------------------------------------
+    let currentUserEmail = null;
+
+    const authLoggedOut = document.getElementById('auth-loggedout');
+    const authLoggedIn = document.getElementById('auth-loggedin');
+    const authEmailInput = document.getElementById('auth-email');
+    const authPasswordInput = document.getElementById('auth-password');
+    const authError = document.getElementById('auth-error');
+    const authEmailLabel = document.getElementById('auth-email-label');
+    const historySection = document.getElementById('history-section');
+    const historyList = document.getElementById('history-list');
+
+    function renderAuthState() {
+      if (currentUserEmail) {
+        authLoggedOut.style.display = 'none';
+        authLoggedIn.style.display = 'flex';
+        authEmailLabel.textContent = currentUserEmail;
+        historySection.style.display = 'block';
+      } else {
+        authLoggedOut.style.display = 'flex';
+        authLoggedIn.style.display = 'none';
+        historySection.style.display = 'none';
+      }
+    }
+
+    async function authRequest(path, payload) {
+      const res = await fetch(WORKER_URL + path, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
+      return data;
+    }
+
+    document.getElementById('auth-login-btn').addEventListener('click', async () => {
+      authError.textContent = '';
+      try {
+        const data = await authRequest('/auth/login', {
+          email: authEmailInput.value.trim(),
+          password: authPasswordInput.value
+        });
+        currentUserEmail = data.email;
+        authPasswordInput.value = '';
+        renderAuthState();
+        refreshHistory();
+      } catch (err) {
+        authError.textContent = err.message;
+      }
+    });
+
+    document.getElementById('auth-signup-btn').addEventListener('click', async () => {
+      authError.textContent = '';
+      try {
+        const data = await authRequest('/auth/signup', {
+          email: authEmailInput.value.trim(),
+          password: authPasswordInput.value
+        });
+        currentUserEmail = data.email;
+        authPasswordInput.value = '';
+        renderAuthState();
+        refreshHistory();
+      } catch (err) {
+        authError.textContent = err.message;
+      }
+    });
+
+    document.getElementById('auth-logout-btn').addEventListener('click', async () => {
+      try {
+        await fetch(WORKER_URL + '/auth/logout', { method: 'POST', credentials: 'include' });
+      } catch (err) { /* ignore — clear client state regardless */ }
+      currentUserEmail = null;
+      renderAuthState();
+    });
+
+    async function checkSession() {
+      try {
+        const res = await fetch(WORKER_URL + '/auth/me', { method: 'GET', credentials: 'include' });
+        const data = await res.json();
+        currentUserEmail = data.email || null;
+      } catch (err) {
+        currentUserEmail = null;
+      }
+      renderAuthState();
+      if (currentUserEmail) refreshHistory();
+    }
+
+    // ---- History --------------------------------------------------------------
+    function formatTimestamp(ms) {
+      return new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function refreshHistory() {
+      try {
+        const res = await fetch(WORKER_URL + '/history', { method: 'GET', credentials: 'include' });
+        const data = await res.json();
+        renderHistory(data.history || []);
+      } catch (err) {
+        // Silently leave the existing list as-is on a transient failure
+      }
+    }
+
+    function renderHistory(entries) {
+      historyList.innerHTML = '';
+      if (entries.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'history-empty';
+        empty.textContent = 'No saved entries yet.';
+        historyList.appendChild(empty);
+        return;
+      }
+
+      for (const entry of entries) {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+
+        const btn = document.createElement('button');
+        btn.className = 'history-item-query';
+        btn.type = 'button';
+        btn.title = entry.query;
+        btn.textContent = `${entry.query} — ${formatTimestamp(entry.timestamp)}`;
+        btn.addEventListener('click', () => {
+          panelMeta.textContent = `${ENGINE_LABELS[entry.engine] || entry.engine}${entry.wordCount ? ` · ${entry.wordCount}w` : ''}`;
+          setPanel('', entry.text);
+          if (entry.outline) addLogEntry('[outline] ', entry.outline);
+        });
+
+        const del = document.createElement('button');
+        del.className = 'history-item-delete';
+        del.type = 'button';
+        del.setAttribute('aria-label', 'Delete this saved entry');
+        del.textContent = '✕';
+        del.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            const data = await authRequest('/history/delete', { id: entry.id });
+            renderHistory(data.history || []);
+          } catch (err) {
+            // leave the list as-is on failure
+          }
+        });
+
+        item.appendChild(btn);
+        item.appendChild(del);
+        historyList.appendChild(item);
+      }
+    }
+
+    checkSession();
   </script>
 
 </body>
