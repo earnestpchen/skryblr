@@ -511,6 +511,7 @@
         } else if (data.warning) {
           // The Worker exhausted its retry attempts — show the draft but make the
           // failure visible instead of silently presenting it as a clean result.
+          if (data.outline) addLogEntry('[outline] ', data.outline);
           const failedChecks = (data.log || [])
             .flatMap(entry => entry.issues || [])
             .filter((v, i, arr) => arr.indexOf(v) === i); // de-dupe repeated issues across attempts
@@ -519,6 +520,7 @@
             `\n\n---\n\n${data.text}`;
           setPanel('error', notice);
         } else {
+          if (data.outline) addLogEntry('[outline] ', data.outline);
           setPanel('', data.text);
         }
       } catch (err) {
