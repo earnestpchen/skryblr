@@ -95,6 +95,47 @@
     letter-spacing: 0.04em;
   }
 
+  .panel-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  #copy-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: transparent;
+    border: 1px solid var(--accent-dim);
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    white-space: nowrap;
+  }
+
+  #copy-btn:hover {
+    background: var(--accent);
+    color: #0d0f16;
+    border-color: var(--accent);
+  }
+
+  #copy-btn:active { transform: scale(0.96); }
+
+  #copy-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  #copy-btn.copied {
+    color: var(--ok);
+    border-color: var(--ok);
+    background: transparent;
+  }
+
   .panel-body {
     font-size: 16px;
     line-height: 1.8;
@@ -737,7 +778,7 @@
     </div>
 
     <h1>Welcome to Skryblr!<span>.</span></h1>
-    <p class="lead">Type a topic, choose a research source, and set a word count. We will generate a reusable prompt for any browsing-capable LLM to write you a peer review-grade scientific paper or summary with in-text citations and references list. And the best part is that our prompt will force your AI agent will iteratively check its own work until it's sure that all information is correct and all sources are legit! Please sign-up to save your queries.</p>
+    <p class="lead">Type a topic, choose a research source, and set a word count. We will generate a reusable prompt for any browsing-capable LLM to write you a peer review grade summary with in-text citations and references list. And the best part is that your AI agent will iteratively check its own work until it's sure that the information is correct and the sources are legit!</p>
 
     <div class="console">
       <div class="console-header">
@@ -763,8 +804,8 @@
           />
         </div>
         <select id="mode-select" aria-label="What to generate">
-          <option value="intro">Simple Summary Prompt</option>
-          <option value="manuscript">Full Manuscript Prompt</option>
+          <option value="intro">Introduction prompt (for a peer-review paper)</option>
+          <option value="manuscript">Full manuscript prompt (needs methods + results attachments)</option>
         </select>
         <input
           type="text"
@@ -810,7 +851,10 @@
   <aside class="panel">
     <div class="panel-header">
       <h2 id="panel-title">Copy-Paste Prompt</h2>
-      <span class="panel-meta" id="panel-meta"></span>
+      <div class="panel-header-right">
+        <span class="panel-meta" id="panel-meta"></span>
+        <button type="button" id="copy-btn" style="display:none;">Copy</button>
+      </div>
     </div>
     <div class="panel-body placeholder" id="panel-body">Your reusable research prompt will appear here once you submit a topic.</div>
   </aside>
@@ -904,14 +948,53 @@
       });
     }
 
+    const copyBtn = document.getElementById('copy-btn');
+    let currentPromptText = ''; // the raw prompt currently shown, for one-click copy
+
     function setPanel(state, text) {
       panelBody.className = 'panel-body' + (state ? ' ' + state : '');
       if (state === 'pending' || state === 'error' || state === 'placeholder') {
         panelBody.textContent = text;
+        // No real prompt to copy in these states.
+        currentPromptText = '';
+        copyBtn.style.display = 'none';
       } else {
         panelBody.innerHTML = linkify(text);
+        // Real output — enable one-click copy of the full prompt.
+        currentPromptText = text;
+        copyBtn.style.display = 'inline-block';
+        copyBtn.classList.remove('copied');
+        copyBtn.textContent = 'Copy';
       }
     }
+
+    async function copyPrompt() {
+      if (!currentPromptText) return;
+      let ok = false;
+      try {
+        await navigator.clipboard.writeText(currentPromptText);
+        ok = true;
+      } catch (e) {
+        // Fallback for browsers/contexts where the async clipboard API is blocked
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = currentPromptText;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch (e2) { ok = false; }
+      }
+      copyBtn.textContent = ok ? 'Copied!' : 'Press Ctrl+C';
+      copyBtn.classList.toggle('copied', ok);
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy';
+        copyBtn.classList.remove('copied');
+      }, 2000);
+    }
+    copyBtn.addEventListener('click', copyPrompt);
 
     // ---- Attachment reminder modal (manuscript mode) ------------------------
     const attachReminder = document.getElementById('attach-reminder');
@@ -945,7 +1028,7 @@
 
       if (placeholder) placeholder.remove();
 
-      const metaBits = `${MODE_LABELS[mode] || mode}${journal ? ` · ${journal}` : ''}${wordCount ? ` · ${wordCount}w` : ''}`;
+      const metaBits = `${MODE_LABELS[mode] || mode}${journal ? ` · ${journal}` : ''}${(mode !== 'manuscript' && wordCount) ? ` · ${wordCount}w` : ''}`;
       addLogEntry(`[you · ${metaBits}] `, value);
       panelMeta.textContent = metaBits;
       if (panelTitle) panelTitle.textContent = mode === 'manuscript' ? 'Manuscript Prompt' : 'Copy-Paste Prompt';
@@ -1127,7 +1210,7 @@
         btn.textContent = `${entry.query} — ${formatTimestamp(entry.timestamp)}`;
         btn.addEventListener('click', () => {
           const modeLabel = entry.mode === 'manuscript' ? 'Manuscript prompt' : 'Introduction prompt';
-          const bits = `${modeLabel}${entry.journal ? ` · ${entry.journal}` : ''}${entry.wordCount ? ` · ${entry.wordCount}w` : ''}`;
+          const bits = `${modeLabel}${entry.journal ? ` · ${entry.journal}` : ''}${(entry.mode !== 'manuscript' && entry.wordCount) ? ` · ${entry.wordCount}w` : ''}`;
           panelMeta.textContent = bits;
           if (panelTitle) panelTitle.textContent = entry.mode === 'manuscript' ? 'Manuscript Prompt' : 'Copy-Paste Prompt';
           setPanel('', entry.text);
