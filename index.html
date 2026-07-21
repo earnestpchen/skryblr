@@ -737,7 +737,7 @@
     </div>
 
     <h1>Welcome to Skryblr!<span>.</span></h1>
-    <p class="lead">Type a topic, choose a research source, and set a word count. We will generate a reusable prompt for any browsing-capable LLM to write you a peer review grade summary with in-text citations and references list. And the best part is that your AI agent will iteratively check its own work until it's sure that the information is correct and the sources are legit!</p>
+    <p class="lead">Type a topic, choose a research source, and set a word count. We will generate a reusable prompt for any browsing-capable LLM to write you a peer review-grade scientific paper or summary with in-text citations and references list. And the best part is that our prompt will force your AI agent will iteratively check its own work until it's sure that all information is correct and all sources are legit! Please sign-up to save your queries.</p>
 
     <div class="console">
       <div class="console-header">
@@ -763,8 +763,8 @@
           />
         </div>
         <select id="mode-select" aria-label="What to generate">
-          <option value="intro">Introduction prompt (for a peer-review paper)</option>
-          <option value="manuscript">Full manuscript prompt (needs methods + results attachments)</option>
+          <option value="intro">Simple summary prompt</option>
+          <option value="manuscript">Full manuscript prompt</option>
         </select>
         <input
           type="text"
@@ -772,7 +772,6 @@
           placeholder="Target journal (e.g. Nature, Cell, JAMA)"
           autocomplete="off"
           maxlength="150"
-          style="width: 100%; display: none;"
         />
         <select id="engine-select" aria-label="Search source">
           <option value="google">google.com</option>
