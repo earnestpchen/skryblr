@@ -686,11 +686,14 @@
         } else if (data.warning) {
           // The Worker exhausted its retry attempts — show the draft but make the
           // failure visible instead of silently presenting it as a clean result.
-          const failedChecks = (data.log || [])
-            .flatMap(entry => entry.issues || [])
-            .filter((v, i, arr) => arr.indexOf(v) === i); // de-dupe repeated issues across attempts
+          // Only show issues from the LAST attempt: earlier attempts' issues may
+          // have already been fixed by the time the final draft was produced,
+          // so pooling issues across every attempt would misleadingly imply
+          // they're still present in the text shown below.
+          const lastAttempt = (data.log || [])[data.log.length - 1];
+          const failedChecks = lastAttempt ? (lastAttempt.issues || []) : [];
           const notice = `⚠ ${data.warning}` +
-            (failedChecks.length ? `\n\nUnresolved issues:\n- ${failedChecks.join('\n- ')}` : '') +
+            (failedChecks.length ? `\n\nUnresolved issues (final attempt):\n- ${failedChecks.join('\n- ')}` : '') +
             `\n\n---\n\n${data.text}`;
           setPanel('error', notice);
         } else {
