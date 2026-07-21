@@ -508,6 +508,16 @@
 
         if (data.error) {
           setPanel('error', data.error);
+        } else if (data.warning) {
+          // The Worker exhausted its retry attempts — show the draft but make the
+          // failure visible instead of silently presenting it as a clean result.
+          const failedChecks = (data.log || [])
+            .flatMap(entry => entry.issues || [])
+            .filter((v, i, arr) => arr.indexOf(v) === i); // de-dupe repeated issues across attempts
+          const notice = `⚠ ${data.warning}` +
+            (failedChecks.length ? `\n\nUnresolved issues:\n- ${failedChecks.join('\n- ')}` : '') +
+            `\n\n---\n\n${data.text}`;
+          setPanel('error', notice);
         } else {
           setPanel('', data.text);
         }

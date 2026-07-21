@@ -54,8 +54,19 @@ export default {
         // 1. GENERATE — ask Claude to write the introduction, searching for real sources.
         // Force tool use on every attempt so a citation/formatting failure never
         // licenses the model to fall back on answering from memory on a retry.
-        const text = await generateIntroduction(env, query, wordCount, tools, feedback, { type: "any" });
+        const { text, stopReason } = await generateIntroduction(env, query, wordCount, tools, feedback, { type: "any" });
         finalText = text;
+
+        // If the response was cut off before finishing, don't bother running the
+        // other checks — they'll just report a missing References section, which
+        // obscures the real cause. Flag truncation directly and retry with a
+        // stronger instruction to be concise.
+        if (stopReason === "max_tokens") {
+          const issues = ["The response was cut off before finishing (hit the token limit) — likely due to overly long quotations or excessive length. Paraphrase more aggressively, keep quotes short and rare, and make sure the response finishes with a complete References section."];
+          attemptLog.push({ attempt, pass: false, issues });
+          feedback = issues.map((issue, i) => `${i + 1}. ${issue}`).join("\n");
+          continue;
+        }
 
         // 2. TEST — structural check: citations present, references present, numbers match, APA-ish shape
         const { issues: structuralIssues, references } = checkStructure(text);
@@ -110,6 +121,7 @@ CITATION FORMAT (required, not optional):
 If there's no individual author, use the organization or site name as the author. If there's no date, use (n.d.).
 - Every bracket number in the text must have exactly one matching numbered entry in References, and every reference must be cited at least once in the text.
 - Only cite sources actually returned by the search tool. Never invent a title, author, date, or URL.
+- Paraphrase in your own words rather than quoting. Never quote more than a short phrase (well under 15 words) from any single source, and never quote the same source more than once. Long or multiple verbatim quotes are not acceptable and will fail review.
 
 Target length for the Introduction text itself (excluding References): approximately ${wordCount} words. No title, no headers, no preamble — begin directly with the first sentence.
 
@@ -133,7 +145,7 @@ async function generateIntroduction(env, topic, wordCount, tools, feedback, tool
     body: JSON.stringify({
       model: "claude-sonnet-5",
       output_config: { effort: "medium" },
-      max_tokens: 1536,
+      max_tokens: 3072,
       system: buildSystemPrompt(wordCount, feedback),
       messages: [{ role: "user", content: `Topic: ${topic}` }],
       tools,
@@ -144,11 +156,13 @@ async function generateIntroduction(env, topic, wordCount, tools, feedback, tool
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || "Anthropic API error during generation");
 
-  return (data.content || [])
+  const text = (data.content || [])
     .filter(b => b.type === "text")
     .map(b => b.text)
     .join("\n")
     .trim();
+
+  return { text, stopReason: data.stop_reason };
 }
 
 // Structural checks: citations exist, references exist, numbers match 1:1, entries look APA-shaped
@@ -274,7 +288,7 @@ ${text}`;
     body: JSON.stringify({
       model: "claude-sonnet-5",
       output_config: { effort: "medium" },
-      max_tokens: 700,
+      max_tokens: 1200,
       messages: [{ role: "user", content: judgePrompt }],
       tools: [{ type: "web_search_20250305", name: "web_search" }],
       tool_choice: { type: "any" }
@@ -300,7 +314,15 @@ ${text}`;
     if (parsed.pass) return [];
     return Array.isArray(parsed.issues) ? parsed.issues : ["Judge review flagged an issue but returned no details."];
   } catch (e) {
-    return []; // if the judge didn't return valid JSON, don't hard-fail on it
+    // A parse failure here usually means the judge's response was cut off
+    // (data.stop_reason === "max_tokens") or malformed. Treat this as "judging
+    // was inconclusive" rather than silently passing — surface it so the loop
+    // either retries with more room or the failure is visible in the log,
+    // instead of a broken judge call quietly waving everything through.
+    if (data.stop_reason === "max_tokens") {
+      return ["Judge review was cut off before finishing (hit its token limit) — could not confirm the draft passes review."];
+    }
+    return ["Judge review returned a response that could not be parsed — could not confirm the draft passes review."];
   }
 }
 
