@@ -784,7 +784,7 @@
 
       input.value = '';
       submitBtn.disabled = true;
-      setPanel('pending', 'Designing and validating your research prompt...');
+      setPanel('pending', 'Designing and validating your research prompt... May take up to a minute');
 
       try {
         const response = await fetch(WORKER_URL, {
