@@ -675,6 +675,7 @@
       try {
         const response = await fetch(WORKER_URL, {
           method: 'POST',
+          credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: value, engine, wordCount })
         });
@@ -736,6 +737,7 @@
     async function authRequest(path, payload) {
       const res = await fetch(WORKER_URL + path, {
         method: 'POST',
+        credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload || {})
       });
@@ -778,7 +780,7 @@
 
     document.getElementById('auth-logout-btn').addEventListener('click', async () => {
       try {
-        await fetch(WORKER_URL + '/auth/logout', { method: 'POST', credentials: 'omit' });
+        await fetch(WORKER_URL + '/auth/logout', { method: 'POST', credentials: 'include' });
       } catch (err) { /* ignore — clear client state regardless */ }
       currentUserEmail = null;
       renderAuthState();
@@ -786,7 +788,7 @@
 
     async function checkSession() {
       try {
-        const res = await fetch(WORKER_URL + '/auth/me', { method: 'GET', credentials: 'omit' });
+        const res = await fetch(WORKER_URL + '/auth/me', { method: 'GET', credentials: 'include' });
         const data = await res.json();
         currentUserEmail = data.email || null;
       } catch (err) {
@@ -803,7 +805,7 @@
 
     async function refreshHistory() {
       try {
-        const res = await fetch(WORKER_URL + '/history', { method: 'GET', credentials: 'omit' });
+        const res = await fetch(WORKER_URL + '/history', { method: 'GET', credentials: 'include' });
         const data = await res.json();
         renderHistory(data.history || []);
       } catch (err) {
