@@ -504,7 +504,7 @@
 
   <div class="layout">
   <main class="card">
-    <div class="auth-bar" id="auth-bar">
+    <div class="auth-bar" id="auth-bar" style="display:none;">
       <div class="auth-loggedout" id="auth-loggedout">
         <input type="email" id="auth-email" placeholder="email" autocomplete="username" />
         <input type="password" id="auth-password" placeholder="password" autocomplete="current-password" />
@@ -675,8 +675,7 @@
       try {
         const response = await fetch(WORKER_URL, {
           method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: value, engine, wordCount })
         });
         const data = await response.json();
@@ -737,8 +736,7 @@
     async function authRequest(path, payload) {
       const res = await fetch(WORKER_URL + path, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload || {})
       });
       const data = await res.json();
@@ -780,7 +778,7 @@
 
     document.getElementById('auth-logout-btn').addEventListener('click', async () => {
       try {
-        await fetch(WORKER_URL + '/auth/logout', { method: 'POST', credentials: 'include' });
+        await fetch(WORKER_URL + '/auth/logout', { method: 'POST', credentials: 'omit' });
       } catch (err) { /* ignore — clear client state regardless */ }
       currentUserEmail = null;
       renderAuthState();
@@ -788,7 +786,7 @@
 
     async function checkSession() {
       try {
-        const res = await fetch(WORKER_URL + '/auth/me', { method: 'GET', credentials: 'include' });
+        const res = await fetch(WORKER_URL + '/auth/me', { method: 'GET', credentials: 'omit' });
         const data = await res.json();
         currentUserEmail = data.email || null;
       } catch (err) {
@@ -805,7 +803,7 @@
 
     async function refreshHistory() {
       try {
-        const res = await fetch(WORKER_URL + '/history', { method: 'GET', credentials: 'include' });
+        const res = await fetch(WORKER_URL + '/history', { method: 'GET', credentials: 'omit' });
         const data = await res.json();
         renderHistory(data.history || []);
       } catch (err) {
@@ -858,7 +856,7 @@
       }
     }
 
-    checkSession();
+    // Authentication/history are disabled in this prompt-generator version.
   </script>
 
 </body>
