@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Website</title>
+<title>Research Prompt Generator</title>
 <style>
   :root {
     --bg: #12141c;
@@ -526,7 +526,7 @@
     </div>
 
     <h1>Hello<span>.</span></h1>
-    <p class="lead">My website is live. Type a topic, pick a source, and set a word count — Claude will research it and write a summary on the right.</p>
+    <p class="lead">Type a topic, choose a research source, and set a word count. Claude will generate a reusable prompt for any browsing-capable LLM.</p>
 
     <div class="console">
       <div class="console-header">
@@ -580,10 +580,10 @@
 
   <aside class="panel">
     <div class="panel-header">
-      <h2>Summary</h2>
+      <h2>Copy-Paste Prompt</h2>
       <span class="panel-meta" id="panel-meta"></span>
     </div>
-    <div class="panel-body placeholder" id="panel-body">Your summary will appear here once you submit a topic.</div>
+    <div class="panel-body placeholder" id="panel-body">Your reusable research prompt will appear here once you submit a topic.</div>
   </aside>
   </div>
 
@@ -670,7 +670,7 @@
 
       input.value = '';
       submitBtn.disabled = true;
-      setPanel('pending', 'Researching and summarizing...');
+      setPanel('pending', 'Designing and validating your research prompt...');
 
       try {
         const response = await fetch(WORKER_URL, {
@@ -684,10 +684,10 @@
         if (data.error) {
           setPanel('error', data.error);
         } else if (data.warning) {
-          // The Worker exhausted its retry attempts — show the draft but make the
-          // failure visible instead of silently presenting it as a clean result.
+          // The Worker exhausted its retry attempts — show the prompt but make the
+          // failure visible instead of silently presenting it as a fully validated result.
           // Only show issues from the LAST attempt: earlier attempts' issues may
-          // have already been fixed by the time the final draft was produced,
+          // have already been fixed by the time the final prompt was produced,
           // so pooling issues across every attempt would misleadingly imply
           // they're still present in the text shown below.
           const lastAttempt = (data.log || [])[data.log.length - 1];
