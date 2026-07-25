@@ -40,6 +40,14 @@
       radial-gradient(circle at 80% 85%, rgba(79, 209, 197, 0.05), transparent 40%);
   }
 
+  .shell {
+    width: 100%;
+    max-width: 1080px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
   .layout {
     width: 100%;
     max-width: 1080px;
@@ -47,6 +55,71 @@
     gap: 20px;
     align-items: stretch;
   }
+
+  /* ---- Tab bar ---------------------------------------------------------- */
+  .tabbar {
+    display: flex;
+    gap: 6px;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  button.tab {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 11px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+
+  button.tab:hover {
+    filter: none;
+    color: var(--text);
+    background: #12141c;
+  }
+
+  button.tab:active { transform: none; }
+
+  button.tab[aria-selected="true"] {
+    color: var(--accent);
+    background: #12141c;
+    border-color: var(--accent-dim);
+  }
+
+  .tab-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--line);
+    flex: 0 0 auto;
+    transition: background 0.15s ease;
+  }
+
+  button.tab[aria-selected="true"] .tab-dot { background: var(--accent); }
+
+  .tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pane { display: none; }
+  .pane.is-active { display: block; }
 
   .card {
     flex: 0 0 320px;
@@ -280,6 +353,23 @@
     background: #12141c;
   }
 
+  .history-item-tag {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 4px;
+  }
+
+  .history-item-tag.gen {
+    color: var(--ok);
+    border-color: #2f5c58;
+  }
+
   .history-item-query {
     flex: 1;
     min-width: 0;
@@ -508,7 +598,7 @@
     letter-spacing: 0.05em;
   }
 
-  #log {
+  .log {
     max-height: 140px;
     overflow-y: auto;
     padding: 12px;
@@ -517,23 +607,23 @@
     line-height: 1.6;
   }
 
-  #log .entry {
+  .log .entry {
     color: var(--text);
     opacity: 0;
     animation: appear 0.25s ease forwards;
   }
 
-  #log .entry .ts {
+  .log .entry .ts {
     color: var(--text-dim);
     margin-right: 8px;
   }
 
-  #log .entry .meta {
+  .log .entry .meta {
     color: var(--accent);
     margin-right: 8px;
   }
 
-  #log .placeholder {
+  .log .placeholder {
     color: var(--text-dim);
     font-style: italic;
   }
@@ -577,8 +667,37 @@
   }
 
   input[type="text"]::placeholder,
-  input[type="number"]::placeholder {
+  input[type="number"]::placeholder,
+  textarea::placeholder {
     color: var(--text-dim);
+  }
+
+  .input-row.input-row-textarea {
+    align-items: flex-start;
+  }
+
+  .input-row.input-row-textarea .prompt-symbol {
+    padding-top: 7px;
+  }
+
+  textarea#general-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 92px;
+    resize: vertical;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 6px 0;
+  }
+
+  textarea#general-input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   select#engine-select,
@@ -655,7 +774,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .dot { animation: none; }
-    #log .entry { animation: none; opacity: 1; }
+    .log .entry { animation: none; opacity: 1; }
   }
 
   .modal-overlay {
@@ -754,6 +873,19 @@
 </head>
 <body>
 
+  <div class="shell">
+
+  <nav class="tabbar" role="tablist" aria-label="Prompt generators">
+    <button type="button" class="tab" id="tab-general" role="tab" data-tab="general"
+            aria-selected="true" aria-controls="pane-general">
+      <span class="tab-dot"></span><span class="tab-label">General Use</span>
+    </button>
+    <button type="button" class="tab" id="tab-research" role="tab" data-tab="research"
+            aria-selected="false" aria-controls="pane-research" tabindex="-1">
+      <span class="tab-dot"></span><span class="tab-label">Research Use</span>
+    </button>
+  </nav>
+
   <div class="layout">
   <main class="card">
     <div class="auth-bar" id="auth-bar">
@@ -777,6 +909,44 @@
       <span>Status: Live</span>
     </div>
 
+    <!-- ================= TAB 1 — GENERAL USE ================= -->
+    <section class="pane is-active" id="pane-general" role="tabpanel" aria-labelledby="tab-general">
+      <h1>Welcome to Skryblr!<span>.</span></h1>
+      <p class="lead">Need a prompt for anything at all? Type what you want an AI to do — write it, plan it, code it, analyze it, decide it — and Skryblr engineers the prompt for you. What you get back is a copy-paste prompt that makes any LLM plan before it writes, grade its own draft against a written checklist of success criteria, and keep revising until every one of them is met. Works in Claude, ChatGPT, Gemini, or whatever you use. Please sign-up to save your queries.</p>
+
+      <div class="console">
+        <div class="console-header">
+          <span class="chip"></span>
+          <span class="chip"></span>
+          <span class="chip"></span>
+          <span class="label">console</span>
+        </div>
+
+        <div class="log" id="general-log">
+          <div class="entry placeholder">Waiting for input&hellip;</div>
+        </div>
+
+        <form id="general-form">
+          <div class="input-row input-row-textarea">
+            <span class="prompt-symbol">&gt;</span>
+            <textarea
+              id="general-input"
+              rows="4"
+              maxlength="4000"
+              autocomplete="off"
+              aria-label="What do you want the AI to do?"
+              placeholder="What do you want an AI to do? e.g. Draft a 5-email launch sequence for a coffee subscription, or find the bug in this Python traceback, or plan a 3-day trip to Lisbon"
+            ></textarea>
+          </div>
+          <button type="submit" style="width: 100%;">Generate prompt</button>
+        </form>
+      </div>
+
+      <footer>Press &#8984; / Ctrl + Enter, or click the button, to submit.</footer>
+    </section>
+
+    <!-- ================= TAB 2 — RESEARCH USE ================= -->
+    <section class="pane" id="pane-research" role="tabpanel" aria-labelledby="tab-research">
     <h1>Welcome to Skryblr!<span>.</span></h1>
     <p class="lead">Are you having trouble writing a scientific paper? Is lit review too much work? Are you having trouble making your AI agent give you what you asked for? Skryblr is here for you! We will generate a reusable prompt for any browsing-capable LLM to write you a peer review-grade scientific paper or summary with in-text citations and references list. And the best part is that our prompt will force your AI agent will iteratively check its own work until it's sure that all information is correct and all sources are legit! Please sign-up to save your queries.</p>
 
@@ -788,7 +958,7 @@
         <span class="label">console</span>
       </div>
 
-      <div id="log">
+      <div class="log" id="log">
         <div class="entry placeholder" id="placeholder-line">Waiting for input&hellip;</div>
       </div>
 
@@ -833,6 +1003,8 @@
     </div>
 
     <footer>Press Enter or click the button to submit.</footer>
+    </section>
+    <!-- ================= /TABS ================= -->
 
     <div class="history-section" id="history-section" style="display:none;">
       <div class="history-header">Saved history</div>
@@ -856,8 +1028,9 @@
         <button type="button" id="copy-btn" style="display:none;">Copy</button>
       </div>
     </div>
-    <div class="panel-body placeholder" id="panel-body">Your reusable research prompt will appear here once you submit a topic.</div>
+    <div class="panel-body placeholder" id="panel-body">Describe what you need in the box on the left and your copy-paste prompt will appear here.</div>
   </aside>
+  </div>
   </div>
 
   <div class="modal-overlay" id="attach-reminder" role="dialog" aria-modal="true" aria-labelledby="attach-reminder-title" style="display:none;">
@@ -886,10 +1059,53 @@
     const panelMeta = document.getElementById('panel-meta');
     const panelTitle = document.getElementById('panel-title');
 
+    const generalForm = document.getElementById('general-form');
+    const generalInput = document.getElementById('general-input');
+    const generalLog = document.getElementById('general-log');
+
     const MODE_LABELS = {
+      general: 'General prompt',
       intro: 'Introduction prompt',
       manuscript: 'Manuscript prompt'
     };
+
+    // ---- Tabs -----------------------------------------------------------------
+    // Two generators share one card: General Use (tab 1) and Research Use (tab 2).
+    // The account bar, saved history and admin panel sit outside the panes, so
+    // they stay put while the tabs swap.
+    const tabButtons = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+    const panes = {
+      general: document.getElementById('pane-general'),
+      research: document.getElementById('pane-research')
+    };
+    let activeTab = 'general';
+
+    function activateTab(tab, moveFocus) {
+      if (!panes[tab]) return;
+      activeTab = tab;
+      tabButtons.forEach(btn => {
+        const isActive = btn.getAttribute('data-tab') === tab;
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        btn.tabIndex = isActive ? 0 : -1;
+        if (isActive && moveFocus) btn.focus();
+      });
+      Object.keys(panes).forEach(key => {
+        panes[key].classList.toggle('is-active', key === tab);
+      });
+      renderPanel();
+    }
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => activateTab(btn.getAttribute('data-tab')));
+      btn.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        e.preventDefault();
+        const i = tabButtons.indexOf(btn);
+        const step = e.key === 'ArrowRight' ? 1 : tabButtons.length - 1;
+        const next = tabButtons[(i + step) % tabButtons.length];
+        activateTab(next.getAttribute('data-tab'), true);
+      });
+    });
 
     // Show the journal field only for full-manuscript mode; show the word-count
     // box only for the intro/summary mode (a full manuscript follows the
@@ -914,7 +1130,10 @@
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 
-    function addLogEntry(metaText, bodyText) {
+    function addLogEntry(logEl, metaText, bodyText) {
+      const ph = logEl.querySelector('.entry.placeholder');
+      if (ph) ph.remove();
+
       const entry = document.createElement('div');
       entry.className = 'entry';
 
@@ -930,8 +1149,8 @@
       entry.appendChild(meta);
       entry.appendChild(document.createTextNode(bodyText));
 
-      log.appendChild(entry);
-      log.scrollTop = log.scrollHeight;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
       return entry;
     }
 
@@ -951,21 +1170,47 @@
     const copyBtn = document.getElementById('copy-btn');
     let currentPromptText = ''; // the raw prompt currently shown, for one-click copy
 
-    function setPanel(state, text) {
-      panelBody.className = 'panel-body' + (state ? ' ' + state : '');
-      if (state === 'pending' || state === 'error' || state === 'placeholder') {
-        panelBody.textContent = text;
+    // Each tab keeps its own output, so switching tabs doesn't throw away the
+    // prompt you just generated in the other one.
+    const panelState = {
+      general: {
+        title: 'Copy-Paste Prompt',
+        meta: '',
+        state: 'placeholder',
+        text: 'Describe what you need in the box on the left and your copy-paste prompt will appear here.'
+      },
+      research: {
+        title: 'Copy-Paste Prompt',
+        meta: '',
+        state: 'placeholder',
+        text: 'Your reusable research prompt will appear here once you submit a topic.'
+      }
+    };
+
+    function renderPanel() {
+      const st = panelState[activeTab];
+      panelTitle.textContent = st.title;
+      panelMeta.textContent = st.meta;
+      panelBody.className = 'panel-body' + (st.state ? ' ' + st.state : '');
+      if (st.state === 'pending' || st.state === 'error' || st.state === 'placeholder') {
+        panelBody.textContent = st.text;
         // No real prompt to copy in these states.
         currentPromptText = '';
         copyBtn.style.display = 'none';
       } else {
-        panelBody.innerHTML = linkify(text);
+        panelBody.innerHTML = linkify(st.text);
         // Real output — enable one-click copy of the full prompt.
-        currentPromptText = text;
+        currentPromptText = st.text;
         copyBtn.style.display = 'inline-block';
         copyBtn.classList.remove('copied');
         copyBtn.textContent = 'Copy';
       }
+    }
+
+    // Update one tab's output. Re-renders only when that tab is on screen.
+    function setPanel(tab, patch) {
+      Object.assign(panelState[tab], patch);
+      if (tab === activeTab) renderPanel();
     }
 
     async function copyPrompt() {
@@ -1015,6 +1260,62 @@
       if (e.key === 'Escape' && attachReminder.style.display === 'flex') hideAttachReminder();
     });
 
+    // ---- Tab 1: General Use --------------------------------------------------
+    // One box, any request. The Worker turns it into a reusable prompt that
+    // makes the downstream LLM self-check and revise before it answers.
+    generalInput.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (typeof generalForm.requestSubmit === 'function') {
+          generalForm.requestSubmit();
+        } else {
+          generalForm.dispatchEvent(new Event('submit', { cancelable: true }));
+        }
+      }
+    });
+
+    generalForm.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const value = generalInput.value.trim();
+      if (!value) return;
+
+      const submitBtn = generalForm.querySelector('button[type="submit"]');
+
+      addLogEntry(generalLog, '[you · general] ', value);
+      setPanel('general', {
+        title: 'Copy-Paste Prompt',
+        meta: 'General prompt',
+        state: 'pending',
+        text: 'Engineering and stress-testing your prompt...'
+      });
+
+      generalInput.value = '';
+      submitBtn.disabled = true;
+
+      try {
+        const response = await fetch(WORKER_URL, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: value, mode: 'general' })
+        });
+        const data = await response.json();
+
+        if (data.error) {
+          setPanel('general', { state: 'error', text: data.error });
+        } else {
+          setPanel('general', { state: '', text: data.text });
+          if (currentUserEmail) refreshHistory(); // auto-saved server-side
+        }
+      } catch (err) {
+        setPanel('general', { state: 'error', text: err.message });
+      } finally {
+        submitBtn.disabled = false;
+        generalInput.focus();
+      }
+    });
+
+    // ---- Tab 2: Research Use -------------------------------------------------
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       const value = input.value.trim();
@@ -1024,20 +1325,21 @@
       const mode = modeSelect.value;
       const wordCount = mode === 'manuscript' ? '' : wordCountInput.value.trim();
       const journal = journalInput.value.trim();
-      const submitBtn = form.querySelector('button');
-
-      if (placeholder) placeholder.remove();
+      const submitBtn = form.querySelector('button[type="submit"]');
 
       const metaBits = `${MODE_LABELS[mode] || mode}${journal ? ` · ${journal}` : ''}${(mode !== 'manuscript' && wordCount) ? ` · ${wordCount}w` : ''}`;
-      addLogEntry(`[you · ${metaBits}] `, value);
-      panelMeta.textContent = metaBits;
-      if (panelTitle) panelTitle.textContent = mode === 'manuscript' ? 'Manuscript Prompt' : 'Copy-Paste Prompt';
+      addLogEntry(log, `[you · ${metaBits}] `, value);
 
       input.value = '';
       submitBtn.disabled = true;
-      setPanel('pending', mode === 'manuscript'
-        ? 'Designing your full-manuscript prompt...'
-        : 'Designing and validating your research prompt...');
+      setPanel('research', {
+        title: mode === 'manuscript' ? 'Manuscript Prompt' : 'Copy-Paste Prompt',
+        meta: metaBits,
+        state: 'pending',
+        text: mode === 'manuscript'
+          ? 'Designing your full-manuscript prompt...'
+          : 'Designing and validating your research prompt...'
+      });
 
       try {
         const response = await fetch(WORKER_URL, {
@@ -1049,7 +1351,7 @@
         const data = await response.json();
 
         if (data.error) {
-          setPanel('error', data.error);
+          setPanel('research', { state: 'error', text: data.error });
         } else if (data.warning) {
           // The Worker exhausted its retry attempts — show the prompt but make the
           // failure visible instead of silently presenting it as a fully validated result.
@@ -1062,14 +1364,14 @@
           const notice = `⚠ ${data.warning}` +
             (failedChecks.length ? `\n\nUnresolved issues (final attempt):\n- ${failedChecks.join('\n- ')}` : '') +
             `\n\n---\n\n${data.text}`;
-          setPanel('error', notice);
+          setPanel('research', { state: 'error', text: notice });
         } else {
-          setPanel('', data.text);
+          setPanel('research', { state: '', text: data.text });
           if (currentUserEmail) refreshHistory(); // a clean pass while logged in was auto-saved server-side
           if (mode === 'manuscript') showAttachReminder();
         }
       } catch (err) {
-        setPanel('error', err.message);
+        setPanel('research', { state: 'error', text: err.message });
       } finally {
         submitBtn.disabled = false;
         wordCountInput.value = '';
@@ -1200,8 +1502,16 @@
       }
 
       for (const entry of entries) {
+        const isGeneral = entry.mode === 'general';
+        const tab = isGeneral ? 'general' : 'research';
+
         const item = document.createElement('div');
         item.className = 'history-item';
+
+        const tag = document.createElement('span');
+        tag.className = 'history-item-tag' + (isGeneral ? ' gen' : '');
+        tag.textContent = isGeneral ? 'gen' : (entry.mode === 'manuscript' ? 'ms' : 'intro');
+        tag.title = MODE_LABELS[entry.mode] || 'Introduction prompt';
 
         const btn = document.createElement('button');
         btn.className = 'history-item-query';
@@ -1209,11 +1519,16 @@
         btn.title = entry.query;
         btn.textContent = `${entry.query} — ${formatTimestamp(entry.timestamp)}`;
         btn.addEventListener('click', () => {
-          const modeLabel = entry.mode === 'manuscript' ? 'Manuscript prompt' : 'Introduction prompt';
-          const bits = `${modeLabel}${entry.journal ? ` · ${entry.journal}` : ''}${(entry.mode !== 'manuscript' && entry.wordCount) ? ` · ${entry.wordCount}w` : ''}`;
-          panelMeta.textContent = bits;
-          if (panelTitle) panelTitle.textContent = entry.mode === 'manuscript' ? 'Manuscript Prompt' : 'Copy-Paste Prompt';
-          setPanel('', entry.text);
+          const bits = `${MODE_LABELS[entry.mode] || MODE_LABELS.intro}` +
+            `${entry.journal ? ` · ${entry.journal}` : ''}` +
+            `${(!isGeneral && entry.mode !== 'manuscript' && entry.wordCount) ? ` · ${entry.wordCount}w` : ''}`;
+          setPanel(tab, {
+            title: entry.mode === 'manuscript' ? 'Manuscript Prompt' : 'Copy-Paste Prompt',
+            meta: bits,
+            state: '',
+            text: entry.text
+          });
+          activateTab(tab);
         });
 
         const del = document.createElement('button');
@@ -1231,6 +1546,7 @@
           }
         });
 
+        item.appendChild(tag);
         item.appendChild(btn);
         item.appendChild(del);
         historyList.appendChild(item);
@@ -1270,6 +1586,10 @@
         '<div class="admin-stat"><div class="num">' + (t.userCount ?? 0) + '</div><div class="lbl">Registered users</div></div>' +
         '<div class="admin-stat"><div class="num">' + (t.queriesByUsers ?? 0) + '</div><div class="lbl">Queries by users</div></div>' +
         '<div class="admin-stat"><div class="num">' + (t.queriesAnon ?? 0) + '</div><div class="lbl">Queries by guests</div></div>' +
+        '</div>' +
+        '<div class="admin-totals">' +
+        '<div class="admin-stat"><div class="num">' + (t.queriesGeneral ?? 0) + '</div><div class="lbl">General use</div></div>' +
+        '<div class="admin-stat"><div class="num">' + (t.queriesResearch ?? 0) + '</div><div class="lbl">Research use</div></div>' +
         '</div>';
 
       // Daily activity — visits and queries side by side per day.
@@ -1312,9 +1632,15 @@
             html += '<div class="history-empty">No saved prompts.</div>';
           } else {
             for (const h of u.history) {
+              const metaBits = [formatTimestamp(h.timestamp), MODE_LABELS[h.mode] || MODE_LABELS.intro];
+              if (h.mode !== 'general') {
+                if (h.engine) metaBits.push(h.engine);
+                if (h.journal) metaBits.push(h.journal);
+                if (h.wordCount) metaBits.push(h.wordCount + 'w');
+              }
               html += '<div class="admin-prompt">' +
                 '<div class="admin-prompt-topic">' + escapeHtmlAdmin(h.query) + '</div>' +
-                '<div class="admin-prompt-time">' + formatTimestamp(h.timestamp) + ' · ' + escapeHtmlAdmin(h.engine || '') + ' · ' + (h.wordCount || '') + 'w</div>' +
+                '<div class="admin-prompt-time">' + escapeHtmlAdmin(metaBits.join(' · ')) + '</div>' +
                 '<div class="admin-prompt-text">' + escapeHtmlAdmin(h.text) + '</div>' +
               '</div>';
             }
@@ -1336,6 +1662,9 @@
     }
 
     document.getElementById('admin-refresh-btn').addEventListener('click', loadAdminStats);
+
+    // Open on tab 1 (General Use) and paint its output panel.
+    activateTab('general');
 
     // Restore session on page load (also captures admin status).
     checkSession();
