@@ -1093,6 +1093,30 @@
     // Replace this with your deployed Worker URL from Step 2
     const WORKER_URL = 'https://claude-search-proxy.earnestchen-search.workers.dev';
 
+    // ---- Session token (header-based auth) ----------------------------------
+    // The frontend and the Worker are on different sites, so cookies get
+    // blocked in incognito windows, in Safari, and across devices. We instead
+    // keep the session token in localStorage and send it as an Authorization
+    // header, which no browser blocks. (localStorage is fine here — this is a
+    // self-hosted page, not a sandboxed claude.ai artifact.)
+    const TOKEN_KEY = 'skryblr_session_token';
+    function getToken() {
+      try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; }
+    }
+    function setToken(t) {
+      try { if (t) localStorage.setItem(TOKEN_KEY, t); } catch (e) { /* storage disabled */ }
+    }
+    function clearToken() {
+      try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* ignore */ }
+    }
+    // Merge the Authorization header into a headers object when we have a token.
+    function authHeaders(extra) {
+      const h = Object.assign({}, extra || {});
+      const t = getToken();
+      if (t) h['Authorization'] = 'Bearer ' + t;
+      return h;
+    }
+
     const form = document.getElementById('entry-form');
     const input = document.getElementById('entry-input');
     const engineSelect = document.getElementById('engine-select');
@@ -1344,7 +1368,7 @@
         const response = await fetch(WORKER_URL, {
           method: 'POST',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ query: value, mode: 'general' })
         });
         const data = await response.json();
@@ -1393,7 +1417,7 @@
         const response = await fetch(WORKER_URL, {
           method: 'POST',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ query: value, engine, wordCount, mode, journal })
         });
         const data = await response.json();
@@ -1463,11 +1487,13 @@
       const res = await fetch(WORKER_URL + path, {
         method: 'POST',
         credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload || {})
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Something went wrong');
+      // Login and signup hand back a session token — store it for this device.
+      if (data.token) setToken(data.token);
       return data;
     }
 
@@ -1503,8 +1529,13 @@
 
     document.getElementById('auth-logout-btn').addEventListener('click', async () => {
       try {
-        await fetch(WORKER_URL + '/auth/logout', { method: 'POST', credentials: 'include' });
+        await fetch(WORKER_URL + '/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+          headers: authHeaders()
+        });
       } catch (err) { /* ignore — clear client state regardless */ }
+      clearToken();
       currentUserEmail = null;
       currentUserIsAdmin = false;
       renderAuthState();
@@ -1512,11 +1543,18 @@
 
     async function checkSession() {
       try {
-        const res = await fetch(WORKER_URL + '/auth/me', { method: 'GET', credentials: 'include' });
+        const res = await fetch(WORKER_URL + '/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+          headers: authHeaders()
+        });
         const data = await res.json();
         currentUserEmail = data.email || null;
         currentUserIsAdmin = !!data.isAdmin;
+        // A definitive "not logged in" means our stored token is stale/expired.
+        if (!currentUserEmail) clearToken();
       } catch (err) {
+        // Network error — keep the token and just show logged-out for now.
         currentUserEmail = null;
         currentUserIsAdmin = false;
       }
@@ -1531,7 +1569,11 @@
 
     async function refreshHistory() {
       try {
-        const res = await fetch(WORKER_URL + '/history', { method: 'GET', credentials: 'include' });
+        const res = await fetch(WORKER_URL + '/history', {
+          method: 'GET',
+          credentials: 'include',
+          headers: authHeaders()
+        });
         const data = await res.json();
         renderHistory(data.history || []);
       } catch (err) {
@@ -1611,7 +1653,11 @@
     async function loadAdminStats() {
       adminContent.innerHTML = '<div class="history-empty">Loading…</div>';
       try {
-        const res = await fetch(WORKER_URL + '/admin/stats', { method: 'GET', credentials: 'include' });
+        const res = await fetch(WORKER_URL + '/admin/stats', {
+          method: 'GET',
+          credentials: 'include',
+          headers: authHeaders()
+        });
         const data = await res.json();
         if (!res.ok) {
           adminContent.innerHTML = '<div class="history-empty">' + escapeHtmlAdmin(data.error || 'Failed to load stats') + '</div>';
