@@ -915,6 +915,157 @@
   @media (prefers-reduced-motion: reduce) {
     .modal-overlay, .modal-card { animation: none; }
   }
+
+  /* ---- "Take me to" destination modal ----------------------------------- */
+  .dest-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 18px 0 14px;
+  }
+
+  /* Override the amber .modal-card button styling for destination rows. */
+  .modal-card button.dest-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin-top: 0;
+    padding: 13px 16px;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--field);
+    border: 1.5px solid var(--line-strong);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  }
+
+  .modal-card button.dest-btn:hover {
+    filter: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+
+  .modal-card button.dest-btn:active { transform: scale(0.985); }
+
+  .modal-card button.dest-btn:focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+  }
+
+  .dest-mark {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .dest-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .dest-name { line-height: 1.2; }
+
+  .dest-sub {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    color: var(--text-dim);
+  }
+
+  .dest-arrow {
+    flex: 0 0 auto;
+    color: var(--text-dim);
+    font-size: 16px;
+  }
+
+  .dest-note {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-dim);
+    background: var(--inset);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 0 0 4px;
+    text-align: left;
+  }
+
+  .dest-note kbd {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--bg-raised);
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: var(--text);
+  }
+
+  .modal-card button.dest-dismiss {
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 8px 12px;
+    margin-top: 2px;
+  }
+
+  .modal-card button.dest-dismiss:hover {
+    filter: none;
+    color: var(--text);
+    text-decoration: underline;
+  }
+
+  /* Header button that reopens the destination picker for the shown prompt. */
+  #open-in-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: transparent;
+    border: 1px solid var(--accent-dim);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+
+  #open-in-btn:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    filter: none;
+  }
+
+  #open-in-btn:active { transform: scale(0.96); }
+
+  #open-in-btn:focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+  }
 </style>
 </head>
 <body>
@@ -1072,6 +1223,7 @@
       <h2 id="panel-title">Copy-Paste Prompt</h2>
       <div class="panel-header-right">
         <span class="panel-meta" id="panel-meta"></span>
+        <button type="button" id="open-in-btn" style="display:none;">Open in ↗</button>
         <button type="button" id="copy-btn" style="display:none;">Copy</button>
       </div>
     </div>
@@ -1087,6 +1239,52 @@
       <p>Your manuscript prompt is ready. Before you run it, make sure you have your <strong>Methods and Results</strong> on hand — the AI needs them to write those sections.</p>
       <p class="modal-sub">When you paste the prompt into Claude, ChatGPT, or your AI tool of choice, remember to <strong>attach your methods and results files alongside it</strong>. Without them, the AI can't complete the manuscript.</p>
       <button type="button" id="attach-reminder-ok">Got it</button>
+    </div>
+  </div>
+
+  <!-- "Take me to" — opens the chosen AI with the prompt loaded/copied. -->
+  <div class="modal-overlay" id="dest-modal" role="dialog" aria-modal="true" aria-labelledby="dest-modal-title" style="display:none;">
+    <div class="modal-card">
+      <div class="modal-icon">🚀</div>
+      <h3 id="dest-modal-title">Take me to:</h3>
+      <p class="modal-sub">Your prompt is ready. Pick where you want to run it.</p>
+
+      <div class="dest-list">
+        <button type="button" class="dest-btn" data-dest="chatgpt">
+          <span class="dest-mark" style="background:#10a37f;" aria-hidden="true">✻</span>
+          <span class="dest-text">
+            <span class="dest-name">ChatGPT</span>
+            <span class="dest-sub" data-sub-for="chatgpt">opens with your prompt loaded</span>
+          </span>
+          <span class="dest-arrow" aria-hidden="true">↗</span>
+        </button>
+
+        <button type="button" class="dest-btn" data-dest="claude">
+          <span class="dest-mark" style="background:#d97757;" aria-hidden="true">✳</span>
+          <span class="dest-text">
+            <span class="dest-name">Claude</span>
+            <span class="dest-sub" data-sub-for="claude">opens with your prompt loaded</span>
+          </span>
+          <span class="dest-arrow" aria-hidden="true">↗</span>
+        </button>
+
+        <button type="button" class="dest-btn" data-dest="gemini">
+          <span class="dest-mark" style="background:#4285f4;" aria-hidden="true">✦</span>
+          <span class="dest-text">
+            <span class="dest-name">Google Gemini</span>
+            <span class="dest-sub" data-sub-for="gemini">opens ready to paste</span>
+          </span>
+          <span class="dest-arrow" aria-hidden="true">↗</span>
+        </button>
+      </div>
+
+      <p class="dest-note" id="dest-note">
+        Your prompt is copied to your clipboard either way — if it doesn't appear
+        in the box automatically, just paste it with <kbd>Ctrl</kbd>+<kbd>V</kbd>
+        (<kbd>⌘</kbd>+<kbd>V</kbd> on Mac).
+      </p>
+
+      <button type="button" class="dest-dismiss" id="dest-dismiss">Maybe later</button>
     </div>
   </div>
 
@@ -1241,6 +1439,7 @@
     }
 
     const copyBtn = document.getElementById('copy-btn');
+    const openInBtn = document.getElementById('open-in-btn');
     let currentPromptText = ''; // the raw prompt currently shown, for one-click copy
 
     // Each tab keeps its own output, so switching tabs doesn't throw away the
@@ -1270,11 +1469,13 @@
         // No real prompt to copy in these states.
         currentPromptText = '';
         copyBtn.style.display = 'none';
+        openInBtn.style.display = 'none';
       } else {
         panelBody.innerHTML = linkify(st.text);
         // Real output — enable one-click copy of the full prompt.
         currentPromptText = st.text;
         copyBtn.style.display = 'inline-block';
+        openInBtn.style.display = 'inline-block';
         copyBtn.classList.remove('copied');
         copyBtn.textContent = 'Copy';
       }
@@ -1286,25 +1487,38 @@
       if (tab === activeTab) renderPanel();
     }
 
-    async function copyPrompt() {
-      if (!currentPromptText) return;
-      let ok = false;
-      try {
-        await navigator.clipboard.writeText(currentPromptText);
-        ok = true;
-      } catch (e) {
-        // Fallback for browsers/contexts where the async clipboard API is blocked
+    // Copy helper shared by the Copy button and the "Take me to" destinations.
+    // IMPORTANT: this must be *called* synchronously inside a click handler —
+    // the clipboard API needs the user gesture, and it must run before any
+    // window.open(), since opening a tab steals focus and some browsers then
+    // reject the write with "document is not focused".
+    function copyTextToClipboard(text) {
+      if (!text) return Promise.resolve(false);
+      // Synchronous fallback path, used when the async API is unavailable.
+      const execFallback = () => {
         try {
           const ta = document.createElement('textarea');
-          ta.value = currentPromptText;
+          ta.value = text;
           ta.style.position = 'fixed';
           ta.style.opacity = '0';
           document.body.appendChild(ta);
           ta.select();
-          ok = document.execCommand('copy');
+          const ok = document.execCommand('copy');
           document.body.removeChild(ta);
-        } catch (e2) { ok = false; }
+          return ok;
+        } catch (e) { return false; }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text)
+          .then(() => true)
+          .catch(() => execFallback());
       }
+      return Promise.resolve(execFallback());
+    }
+
+    async function copyPrompt() {
+      if (!currentPromptText) return;
+      const ok = await copyTextToClipboard(currentPromptText);
       copyBtn.textContent = ok ? 'Copied!' : 'Press Ctrl+C';
       copyBtn.classList.toggle('copied', ok);
       setTimeout(() => {
@@ -1314,16 +1528,117 @@
     }
     copyBtn.addEventListener('click', copyPrompt);
 
+    // ---- "Take me to" destinations ------------------------------------------
+    // Prefilling a chat via URL is only reliable on some services, and only for
+    // shorter prompts, so this is deliberately clipboard-first: we ALWAYS copy
+    // the prompt, then additionally prefill via ?q= where that actually works.
+    // Worst case the user lands on the site and pastes — never a dead end.
+    //
+    // prefill: whether the service reads a ?q= URL parameter.
+    //   ChatGPT — supported.
+    //   Claude  — supported (Anthropic truncates q at roughly 14k chars).
+    //   Gemini  — NOT natively supported, so we open the app and rely on paste.
+    const DESTINATIONS = {
+      chatgpt: { name: 'ChatGPT', url: 'https://chatgpt.com/', prefill: true,  param: 'q', limit: 6000 },
+      claude:  { name: 'Claude',  url: 'https://claude.ai/new', prefill: true,  param: 'q', limit: 6000 },
+      gemini:  { name: 'Google Gemini', url: 'https://gemini.google.com/app', prefill: false }
+    };
+
+    // Very long prompts blow past safe URL limits (servers commonly reject
+    // ~8k URLs, and a silently truncated prompt is worse than none, since the
+    // user might not notice). Above the cap we skip the parameter entirely.
+    function buildDestUrl(key, text) {
+      const d = DESTINATIONS[key];
+      if (!d) return null;
+      if (!d.prefill || !text) return d.url;
+      const encoded = encodeURIComponent(text);
+      if (encoded.length > d.limit) return d.url; // too long — clipboard only
+      return d.url + (d.url.indexOf('?') === -1 ? '?' : '&') + d.param + '=' + encoded;
+    }
+
+    // True when this destination will actually receive the prompt in its URL.
+    function willPrefill(key, text) {
+      const d = DESTINATIONS[key];
+      if (!d || !d.prefill || !text) return false;
+      return encodeURIComponent(text).length <= d.limit;
+    }
+
+    const destModal = document.getElementById('dest-modal');
+    const destDismiss = document.getElementById('dest-dismiss');
+    let destLastFocus = null;
+
+    // Keep each row's caption honest about what will actually happen.
+    function syncDestSubs() {
+      for (const key of Object.keys(DESTINATIONS)) {
+        const el = destModal.querySelector('[data-sub-for="' + key + '"]');
+        if (!el) continue;
+        el.textContent = willPrefill(key, currentPromptText)
+          ? 'opens with your prompt loaded'
+          : 'opens ready to paste';
+      }
+    }
+
+    function showDestModal() {
+      if (!currentPromptText) return; // nothing to hand off
+      destLastFocus = document.activeElement;
+      syncDestSubs();
+      destModal.style.display = 'flex';
+      const first = destModal.querySelector('.dest-btn');
+      if (first) first.focus();
+    }
+
+    function hideDestModal() {
+      destModal.style.display = 'none';
+      // Return focus where it was, so keyboard users aren't dumped at the top.
+      if (destLastFocus && typeof destLastFocus.focus === 'function') {
+        try { destLastFocus.focus(); } catch (e) { /* element may be gone */ }
+      }
+      destLastFocus = null;
+    }
+
+    // Copy first, then open — both initiated inside the click's user gesture.
+    function openDestination(key) {
+      const text = currentPromptText;
+      if (!text) return;
+      copyTextToClipboard(text);           // fire-and-forget; do NOT await here
+      const url = buildDestUrl(key, text);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      hideDestModal();
+    }
+
+    destModal.querySelectorAll('.dest-btn').forEach(btn => {
+      btn.addEventListener('click', () => openDestination(btn.getAttribute('data-dest')));
+    });
+    destDismiss.addEventListener('click', hideDestModal);
+    destModal.addEventListener('click', (e) => {
+      if (e.target === destModal) hideDestModal(); // click outside the card
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && destModal.style.display === 'flex') hideDestModal();
+    });
+
+    // Header button: reopen the picker for whatever prompt is on screen,
+    // including one restored from saved history.
+    openInBtn.addEventListener('click', showDestModal);
+
     // ---- Attachment reminder modal (manuscript mode) ------------------------
     const attachReminder = document.getElementById('attach-reminder');
     const attachReminderOk = document.getElementById('attach-reminder-ok');
 
-    function showAttachReminder() {
+    let attachThenDestinations = false;
+
+    function showAttachReminder(opts) {
+      attachThenDestinations = !!(opts && opts.thenShowDestinations);
       attachReminder.style.display = 'flex';
       attachReminderOk.focus();
     }
     function hideAttachReminder() {
       attachReminder.style.display = 'none';
+      // However it was dismissed, follow it with the "Take me to" picker.
+      if (attachThenDestinations) {
+        attachThenDestinations = false;
+        showDestModal();
+      }
     }
     attachReminderOk.addEventListener('click', hideAttachReminder);
     attachReminder.addEventListener('click', (e) => {
@@ -1379,6 +1694,7 @@
         } else {
           setPanel('general', { state: '', text: data.text });
           if (currentUserEmail) refreshHistory(); // auto-saved server-side
+          showDestModal(); // "Take me to:" hand-off
         }
       } catch (err) {
         setPanel('general', { state: 'error', text: err.message });
@@ -1441,7 +1757,13 @@
         } else {
           setPanel('research', { state: '', text: data.text });
           if (currentUserEmail) refreshHistory(); // a clean pass while logged in was auto-saved server-side
-          if (mode === 'manuscript') showAttachReminder();
+          // Manuscript mode already pops the attachment reminder — queue the
+          // destination picker behind it so two modals never stack.
+          if (mode === 'manuscript') {
+            showAttachReminder({ thenShowDestinations: true });
+          } else {
+            showDestModal();
+          }
         }
       } catch (err) {
         setPanel('research', { state: 'error', text: err.message });
