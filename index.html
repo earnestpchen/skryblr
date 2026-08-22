@@ -473,6 +473,50 @@
     margin-top: 2px;
   }
 
+  .admin-chart {
+    background: var(--inset);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 12px 8px;
+    margin-bottom: 12px;
+  }
+
+  .admin-chart svg { display: block; width: 100%; height: auto; }
+
+  .admin-chart .chart-legend {
+    display: flex;
+    gap: 14px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .admin-chart .chart-legend .swatch {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+
+  .admin-chart .chart-point {
+    transition: r 0.15s ease;
+  }
+
+  .admin-chart .chart-point:hover {
+    r: 5;
+  }
+
+  .admin-chart .chart-empty {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    font-style: italic;
+    padding: 10px 2px;
+  }
+
   .admin-user {
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -1992,6 +2036,97 @@
       }
     }
 
+    // Formats a 'YYYY-MM-DD' UTC date key as a short label like "Aug 5".
+    // Parsed with an explicit UTC time-of-day and read back with UTC getters,
+    // so a local timezone behind UTC can never shift the day back by one.
+    function shortDateLabel(dateKey) {
+      const d = new Date(dateKey + 'T00:00:00Z');
+      if (isNaN(d.getTime())) return dateKey;
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return months[d.getUTCMonth()] + ' ' + d.getUTCDate();
+    }
+
+    // Picks a "nice" round number at or above `value` for the chart's top
+    // gridline (1/2/5 * a power of ten), so axis labels read as whole numbers.
+    function niceCeiling(value) {
+      if (value <= 4) return Math.max(4, value);
+      const mag = Math.pow(10, Math.floor(Math.log10(value)));
+      for (const step of [1, 2, 2.5, 5, 10]) {
+        const candidate = step * mag;
+        if (candidate >= value) return candidate;
+      }
+      return 10 * mag;
+    }
+
+    // Renders daily visits + queries as an inline SVG line chart: no chart
+    // library needed, and it degrades gracefully (native <title> tooltips,
+    // scales via viewBox) without any extra event wiring on the injected HTML.
+    function buildDailyTrafficChart(daily) {
+      if (!daily || !daily.length) {
+        return '<div class="admin-chart"><div class="chart-empty">No traffic recorded yet.</div></div>';
+      }
+
+      const W = 640, H = 200;
+      const padL = 34, padR = 10, padT = 12, padB = 24;
+      const innerW = W - padL - padR;
+      const innerH = H - padT - padB;
+
+      const n = daily.length;
+      const rawMax = Math.max(1, ...daily.map(d => Math.max(d.visits || 0, d.queries || 0)));
+      const topVal = niceCeiling(rawMax);
+
+      const xFor = (i) => n > 1 ? padL + (i / (n - 1)) * innerW : padL + innerW / 2;
+      const yFor = (v) => padT + innerH - (Math.min(v, topVal) / topVal) * innerH;
+
+      const linePath = (key) => daily.map((d, i) => (i === 0 ? 'M' : 'L') + xFor(i).toFixed(1) + ',' + yFor(d[key] || 0).toFixed(1)).join(' ');
+
+      const points = (key, color) => daily.map((d, i) => {
+        const val = d[key] || 0;
+        const title = escapeHtmlAdmin(d.date) + ': ' + val + ' ' + key +
+          (key === 'visits' && d.uniqueVisitors != null ? ' (' + d.uniqueVisitors + ' unique)' : '');
+        return '<circle class="chart-point" cx="' + xFor(i).toFixed(1) + '" cy="' + yFor(val).toFixed(1) +
+          '" r="3.2" fill="' + color + '"><title>' + title + '</title></circle>';
+      }).join('');
+
+      // Y-axis gridlines at 0%, 25%, 50%, 75%, 100% of the nice ceiling.
+      let gridlines = '';
+      for (let f = 0; f <= 1.0001; f += 0.25) {
+        const y = padT + innerH - f * innerH;
+        const label = Math.round(topVal * f);
+        gridlines +=
+          '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="var(--line)" stroke-width="1" />' +
+          '<text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end" font-size="9" font-family="var(--font-mono)" fill="var(--text-dim)">' + label + '</text>';
+      }
+
+      // X-axis labels: show every day if there are few, otherwise thin out to
+      // roughly 6 evenly-spaced labels so they never overlap on a narrow card.
+      const labelEvery = Math.max(1, Math.ceil(n / 6));
+      let xLabels = '';
+      for (let i = 0; i < n; i++) {
+        if (i % labelEvery !== 0 && i !== n - 1) continue;
+        xLabels += '<text x="' + xFor(i).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="9" font-family="var(--font-mono)" fill="var(--text-dim)">' +
+          escapeHtmlAdmin(shortDateLabel(daily[i].date)) + '</text>';
+      }
+
+      const svg =
+        '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Daily visits and queries over time">' +
+          gridlines +
+          '<path d="' + linePath('visits') + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />' +
+          '<path d="' + linePath('queries') + '" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />' +
+          points('visits', 'var(--accent)') +
+          points('queries', 'var(--ok)') +
+          xLabels +
+        '</svg>';
+
+      return '<div class="admin-chart">' +
+        '<div class="chart-legend">' +
+          '<span><span class="swatch" style="background:var(--accent);"></span>Visits</span>' +
+          '<span><span class="swatch" style="background:var(--ok);"></span>Queries</span>' +
+        '</div>' +
+        svg +
+        '</div>';
+    }
+
     function renderAdminStats(data) {
       const t = data.totals || {};
       let html = '<div class="admin-totals">' +
@@ -2009,28 +2144,9 @@
         '<div class="admin-stat"><div class="num">' + (t.queriesResearch ?? 0) + '</div><div class="lbl">Research use</div></div>' +
         '</div>';
 
-      // Daily activity — visits and queries side by side per day.
-      if (data.daily && data.daily.length) {
-        const max = Math.max(...data.daily.map(d => Math.max(d.visits || 0, d.queries || 0)), 1);
-        html += '<div class="history-header" style="margin-top:6px;">Daily traffic</div>';
-        html += '<div style="display:flex;gap:10px;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);margin-bottom:4px;">' +
-          '<span><span style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:2px;"></span> visits</span>' +
-          '<span><span style="display:inline-block;width:8px;height:8px;background:var(--ok);border-radius:2px;"></span> queries</span>' +
-          '</div>';
-        html += '<div style="margin-bottom:12px;">';
-        for (const d of data.daily) {
-          const vPct = Math.round(((d.visits || 0) / max) * 100);
-          const qPct = Math.round(((d.queries || 0) / max) * 100);
-          html += '<div style="margin-bottom:5px;font-family:var(--font-mono);font-size:11px;">' +
-            '<div style="color:var(--text-dim);margin-bottom:1px;">' + escapeHtmlAdmin(d.date) +
-              ' — ' + (d.visits || 0) + ' visit' + ((d.visits||0)===1?'':'s') +
-              ' (' + (d.uniqueVisitors || 0) + ' unique), ' + (d.queries || 0) + ' quer' + ((d.queries||0)===1?'y':'ies') + '</div>' +
-            '<span style="display:block;height:8px;width:' + vPct + '%;min-width:2px;background:var(--accent);border-radius:2px;margin-bottom:1px;"></span>' +
-            '<span style="display:block;height:8px;width:' + qPct + '%;min-width:2px;background:var(--ok);border-radius:2px;"></span>' +
-            '</div>';
-        }
-        html += '</div>';
-      }
+      // Daily traffic — line chart of visits vs. queries over time.
+      html += '<div class="history-header" style="margin-top:6px;">Daily traffic</div>';
+      html += buildDailyTrafficChart(data.daily || []);
 
       // Per-user detail (collapsible; click a user to expand their prompts)
       html += '<div class="history-header" style="margin-top:6px;">Per-user activity</div>';
